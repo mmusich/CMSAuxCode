@@ -175,31 +175,31 @@ class TrackAnalyzerHisto : public edm::EDAnalyzer {
       hHit->Fill(track->numberOfValidHits());
       std::cout<<"n. hits:"<<track->numberOfValidHits()<<std::endl;
 
-      const reco::HitPattern& p = track->hitPattern();  
+      //const reco::HitPattern& p = track->hitPattern();  
       
-      std::cout<<"n. hits (from hit pattern):" << p.numberOfHits(reco::HitPattern::TRACK_HITS)<<std::endl;
+      //std::cout<<"n. hits (from hit pattern):" << p.numberOfHits(reco::HitPattern::TRACK_HITS)<<std::endl;
       
       //loop over the hits of the track
-      for (int i = 0; i < p.numberOfHits(reco::HitPattern::TRACK_HITS); i++) {
-	uint32_t hit = p.getHitPattern(reco::HitPattern::TRACK_HITS, i);
+      // for (int i = 0; i < p.numberOfHits(reco::HitPattern::TRACK_HITS); i++) {
+      // 	uint32_t hit = p.getHitPattern(reco::HitPattern::TRACK_HITS, i);
 	
-	// if the hit is valid and in pixel barrel, print out the layer
-	if (p.validHitFilter(hit) && p.pixelBarrelHitFilter(hit)){
-	  cout << "valid hit found in pixel barrel layer "
-	       << p.getLayer(hit)
-	       << endl;
-	}
+      // 	if the hit is valid and in pixel barrel, print out the layer
+      // 	if (p.validHitFilter(hit) && p.pixelBarrelHitFilter(hit)){
+      // 	   cout << "valid hit found in pixel barrel layer "
+      // 	        << p.getLayer(hit)
+      // 	        << endl;
+      // 	}
        
-	// expert level: printout the hit in 11-bit binary format
-	cout << "hit in 11-bit binary format = ";
-	for (int j = 10; j >= 0; j--){
-	  int bit = (hit >> j) & 0x1;
-	  cout << bit;
-	}
-	cout << endl;
-      }
+      // 	// expert level: printout the hit in 11-bit binary format
+      // 	cout << "hit in 11-bit binary format = ";
+      // 	for (int j = 10; j >= 0; j--){
+      // 	  int bit = (hit >> j) & 0x1;
+      // 	  cout << bit;
+      // 	}
+      // 	cout << endl;
+      // }
       
-      std::cout<<"n. layers:" << p.trackerLayersWithMeasurement()<<std::endl;
+      //std::cout<<"n. layers:" << p.trackerLayersWithMeasurement()<<std::endl;
 
       hnhpxb->Fill( track->hitPattern().numberOfValidPixelBarrelHits());
       hnhpxe->Fill(track->hitPattern().numberOfValidPixelEndcapHits());
