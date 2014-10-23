@@ -22,12 +22,15 @@ process.source.fileNames = [
 
 process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(-1))
 
+ ##
+ ## Load and Configure Alignment Track Selector
+ ##
 import Alignment.CommonAlignmentProducer.AlignmentTrackSelector_cfi
-
 process.MuSkimSelector = Alignment.CommonAlignmentProducer.AlignmentTrackSelector_cfi.AlignmentTrackSelector.clone(
     applyBasicCuts = True,                                                                            
     filter = True,
-    src = 'ALCARECOTkAlMuonIsolated',
+    #src = 'ALCARECOTkAlMuonIsolated'
+    src = 'TrackRefitter',
     ptMin = 17.,
     pMin = 17.,
     etaMin = -2.5,
@@ -40,13 +43,34 @@ process.MuSkimSelector = Alignment.CommonAlignmentProducer.AlignmentTrackSelecto
     nHitMin2D = 0,
     )
 
+ ##
+ ## Load and Configure TrackRefitter
+ ##
+process.load("RecoTracker.MeasurementDet.MeasurementTrackerEventProducer_cfi") 
+process.MeasurementTrackerEvent.pixelClusterProducer = 'ALCARECOTkAlMuonIsolated'
+process.MeasurementTrackerEvent.stripClusterProducer = 'ALCARECOTkAlMuonIsolated'
+process.MeasurementTrackerEvent.inactivePixelDetectorLabels = cms.VInputTag()
+process.MeasurementTrackerEvent.inactiveStripDetectorLabels = cms.VInputTag()
+
+process.load("RecoTracker.TrackProducer.TrackRefitters_cff")
+import RecoTracker.TrackProducer.TrackRefitters_cff
+process.TrackRefitter = RecoTracker.TrackProducer.TrackRefitter_cfi.TrackRefitter.clone()
+process.TrackRefitter.src = "ALCARECOTkAlMuonIsolated"
+process.TrackRefitter.TrajectoryInEvent = True
+process.TrackRefitter.TTRHBuilder = "WithAngleAndTemplate"
+
+ ##
+ ## Load and Configure analysis
+ ##
 process.myanalysis = cms.EDAnalyzer("TrackAnalyzerHisto",
-                                    TkTag = cms.string ('ALCARECOTkAlMuonIsolated'),
+                                    #TkTag = cms.string ('TrackRefitter'),
+                                    TkTag = cms.string ('MuSkimSelector'),
                                     maxMass = cms.double(115),
                                     minMass = cms.double(65)
                                     )
+
 process.TFileService = cms.Service("TFileService",
-                                   fileName = cms.string('myDYToMuMu_M-50_Tune4C_13TeV-pythia8_V6-v1.root')
+                                   fileName = cms.string('myAlCaRecoStreamValidationTest.root')
                                    )
 
 process.MessageLogger = cms.Service("MessageLogger",
@@ -61,5 +85,13 @@ process.MessageLogger = cms.Service("MessageLogger",
 
 )
 
-process.p1 = cms.Path(process.offlineBeamSpot*process.myanalysis)
-#process.p2 = cms.Path(process.offlineBeamSpot*process.MuSkim*process.myanalysis)
+#process.p1 = cms.Path(process.offlineBeamSpot*
+#                      process.MeasurementTrackerEvent*
+#                      process.TrackRefitter*
+#                      process.myanalysis)
+
+process.p2 = cms.Path(process.offlineBeamSpot*
+                      process.MeasurementTrackerEvent*
+                      process.TrackRefitter*
+                      process.MuSkimSelector*
+                      process.myanalysis)
