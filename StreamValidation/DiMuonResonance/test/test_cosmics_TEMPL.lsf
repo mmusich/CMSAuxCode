@@ -1,0 +1,37 @@
+#!/bin/bash
+
+myScenario=$1
+theGT=$2
+myInputDataset=$3
+myOutputFile=$4
+
+JobName=testCosmics_$myScenario
+
+echo "Job $Jobname started at " `date`
+
+CMSSW_DIR=${CMSSW_BASE}/src/StreamValidation/DiMuonResonance/test
+LXBATCH_DIR=$PWD/
+
+cd ${CMSSW_BASE}/src/StreamValidation/DiMuonResonance/test
+eval `scramv1 runtime -sh`
+cd $LXBATCH_DIR
+
+cp ${CMSSW_DIR}/test_cosmics_TEMPL_cfg.py .
+echo "cmsRun test_cosmics_TEMPL_cfg.py myDataset=$myInputDataset OutFileName=$myOutputFile myGT=$theGT"
+
+cmsRun test_cosmics_TEMPL_cfg.py myDataset=$myInputDataset OutFileName=$myOutputFile myGT=$theGT  >& ${JobName}.out
+
+echo "Content of working directory is: " `ls -lrt`
+
+OUT_DIR=/store/caf/user/musich/Alignment/TestCosmicsAll
+
+for RootOutputFile in $(ls *root |grep "test") 
+do cmsStage -f ${RootOutputFile} ${OUT_DIR}/${RootOutputFile} 
+done
+scp ${JobName}.out ${CMSSW_DIR}/outfiles
+
+echo  "Job ended at " `date`
+
+exit 0
+
+
