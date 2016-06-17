@@ -4,6 +4,7 @@
 <use   name="TrackingTools/Records"/>
 <use   name="TrackingTools/TrackFitters"/>
 <use   name="TrackingTools/TrajectoryState"/>
+<use   name="TrackingTools/TransientTrack"/>
 <use   name="DataFormats/Common"/>
 <use   name="DataFormats/GsfTrackReco"/>
 <use   name="DataFormats/TrackReco"/>
@@ -19,7 +20,6 @@
 <use   name="Geometry/Records"/>
 <use   name="MagneticField/Engine"/>
 <use   name="MagneticField/Records"/>
-<use   name="RecoTracker/TkNavigation"/>
 <use   name="Utilities/General"/>
 <use   name="clhep"/>
 <use   name="SimDataFormats/Vertex"/>
