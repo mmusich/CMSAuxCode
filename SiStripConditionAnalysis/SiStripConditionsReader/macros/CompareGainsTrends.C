@@ -6,7 +6,7 @@
 #include "TLegend.h"
 #include "TArrow.h"
 #include "TAxis.h"
-#include "TGAxis.h"
+#include "TGaxis.h"
 #include "TPad.h"
 #include "TColor.h"
 #include "iostream"
