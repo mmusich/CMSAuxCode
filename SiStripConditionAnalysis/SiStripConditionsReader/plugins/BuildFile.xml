@@ -5,4 +5,5 @@
 <use name="CondFormats/DataRecord"/>
 <use name="CalibFormats/SiStripObjects"/>
 <use name="CalibTracker/Records"/>
+<use name="CommonTools/UtilAlgos"/>
 <flags EDM_PLUGIN="1"/>

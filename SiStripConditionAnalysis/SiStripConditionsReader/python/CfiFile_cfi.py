@@ -1,4 +1,6 @@
 import FWCore.ParameterSet.Config as cms
 
-demo = cms.EDAnalyzer('SiStripConditionsReader'
-)
+SiStripGainAverage = cms.EDAnalyzer('SiStripConditionsReader',
+                                    rawFileName = cms.untracked.string("")
+                                    )
+
