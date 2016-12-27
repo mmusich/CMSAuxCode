@@ -60,6 +60,28 @@
 #define DEBUG 0
 
 //
+// constants, enums and typedefs
+//
+
+// add new entries bef
+
+namespace partitions {
+  enum layers {
+    TIBL1,
+    TIBL2,
+    TIBL3,
+    TIBL4,
+    TOBL1,
+    TOBL2,
+    TOBL3,
+    TOBL4,
+    TOBL5,
+    TOBL6,
+    NUM_OF_TYPES
+  };
+}
+
+//
 // class declaration
 //
 
@@ -81,14 +103,15 @@ class SiStripConditionsReader : public edm::one::EDAnalyzer<edm::one::SharedReso
       virtual void beginJob() override;
       virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
       virtual void endJob() override;
+      std::string getStringFromEnum(partitions::layers e);
       std::pair<int,int> typeAndLayerFromDetId( const DetId& detId , const TrackerTopology* tTopo) const;
-
+  
       // ----------member data ---------------------------
     
       edm::Service<TFileService> fs;
       std::auto_ptr<std::ofstream> output_;
 
-      std::vector<std::string> partitions {"TIBL1","TIBL2","TIBL3","TIBL4","TOBL1","TOBL2","TOBL3","TOBL4","TOBL5","TOBL6"};
+      // std::vector<std::string> partitions {"TIBL1","TIBL2","TIBL3","TIBL4","TOBL1","TOBL2","TOBL3","TOBL4","TOBL5","TOBL6"};
 
       static const int nIOVs_ = 100; 
       static const int nParts_ = 10;
@@ -98,16 +121,12 @@ class SiStripConditionsReader : public edm::one::EDAnalyzer<edm::one::SharedReso
       edm::ESWatcher<SiStripApvGainRcd>  G1watcher_;
       edm::ESWatcher<SiStripApvGain2Rcd> G2watcher_;
   
-      std::map<int,std::map<std::string,TH1D*> > gainTrendByPartition_ ; 
+      std::map<int,std::map<partitions::layers,TH1D*> > gainTrendByPartition_ ; 
       TH1D* h_gainByPart_[nParts_][nIOVs_];
 
-      std::map<std::string , TGraph* > g_GainsByPartition_ByIOV;
+      std::map<partitions::layers , TGraph* > g_GainsByPartition_ByIOV;
 
 };
-
-//
-// constants, enums and typedefs
-//
 
 //
 // static data member definitions
@@ -172,8 +191,9 @@ SiStripConditionsReader::analyze(const edm::Event& iEvent, const edm::EventSetup
      
      // assign to each element to the map the corresponding histogram
 
-     for(unsigned int part=0;part<partitions.size();part++){
-       gainTrendByPartition_[run][partitions[part]] = h_gainByPart_[part][IOVcount_];
+     for(int i = partitions::TIBL1; i!=partitions::NUM_OF_TYPES; i++){
+       partitions::layers part = (partitions::layers) i;           
+       gainTrendByPartition_[run][part] = h_gainByPart_[part][IOVcount_];
      }
      
      edm::ESHandle<SiStripGain> SiStripApvGain_;
@@ -202,19 +222,19 @@ SiStripConditionsReader::analyze(const edm::Event& iEvent, const edm::EventSetup
 	   switch (packedTopo.second)
 	     {
 	     case 1:
-	       h_gainByPart_[0][IOVcount_]->Fill(G1G2); 
+	       h_gainByPart_[partitions::TIBL1][IOVcount_]->Fill(G1G2); 
 	       break;
 	       
 	     case 2:
-	       h_gainByPart_[1][IOVcount_]->Fill(G1G2); 	       
+	       h_gainByPart_[partitions::TIBL2][IOVcount_]->Fill(G1G2); 	       
 	       break;
 	       
 	     case 3:
-	       h_gainByPart_[2][IOVcount_]->Fill(G1G2); 
+	       h_gainByPart_[partitions::TIBL3][IOVcount_]->Fill(G1G2); 
 	       break;
 	       
 	     case 4:
-	       h_gainByPart_[3][IOVcount_]->Fill(G1G2); 
+	       h_gainByPart_[partitions::TIBL4][IOVcount_]->Fill(G1G2); 
 	       break;
 	       
 	     default:
@@ -227,34 +247,33 @@ SiStripConditionsReader::analyze(const edm::Event& iEvent, const edm::EventSetup
 	   switch (packedTopo.second) 
 	     {
 	     case 1:
-	       h_gainByPart_[4][IOVcount_]->Fill(G1G2); 
+	       h_gainByPart_[partitions::TOBL1][IOVcount_]->Fill(G1G2); 
 	       break;
 	       
 	     case 2:
-	       h_gainByPart_[5][IOVcount_]->Fill(G1G2); 	       
+	       h_gainByPart_[partitions::TOBL2][IOVcount_]->Fill(G1G2); 	       
 	       break;
 	       
 	     case 3:
-	       h_gainByPart_[6][IOVcount_]->Fill(G1G2); 
+	       h_gainByPart_[partitions::TOBL3][IOVcount_]->Fill(G1G2); 
 	       break;
 	       
 	     case 4:
-	       h_gainByPart_[7][IOVcount_]->Fill(G1G2); 
+	       h_gainByPart_[partitions::TOBL4][IOVcount_]->Fill(G1G2); 
 	       break;
 
 	     case 5:
-	       h_gainByPart_[8][IOVcount_]->Fill(G1G2); 
+	       h_gainByPart_[partitions::TOBL5][IOVcount_]->Fill(G1G2); 
 	       break;
 	       
 	     case 6:
-	       h_gainByPart_[9][IOVcount_]->Fill(G1G2); 
+	       h_gainByPart_[partitions::TOBL6][IOVcount_]->Fill(G1G2); 
 	       break;
 
 	     default:
 	       edm::LogWarning("LogicError") << "Unknown layer: " <<  packedTopo.second;
 	     }
 	 }
-
 
 	 if(DEBUG){
 	   std::cout << "type: " << packedTopo.first;
@@ -277,11 +296,13 @@ SiStripConditionsReader::beginJob()
 {
   
   std::vector<TFileDirectory> dirs;
-  for (unsigned int i=0;i<partitions.size();i++){
-    dirs.push_back(fs->mkdir(partitions[i]));
+  for (int i=partitions::TIBL1;i!=partitions::NUM_OF_TYPES;i++){
+    partitions::layers part = (partitions::layers) i;           
+    
+    dirs.push_back(fs->mkdir(this->getStringFromEnum(part)));
     
     for(int j=0;j<nIOVs_; ++j){
-      h_gainByPart_[i][j] = dirs[i].make<TH1D>(Form("G_%s_IOV%i",partitions[i].c_str(),j),Form("%s Gain for IOV %i; Gain; n. APV",partitions[i].c_str(),j),100,0.,2.);
+      h_gainByPart_[i][j] = dirs[i].make<TH1D>(Form("G_%s_IOV%i",this->getStringFromEnum(part).c_str(),j),Form("%s Gain for IOV %i; Gain; n. APV",this->getStringFromEnum(part).c_str(),j),100,0.,2.);
     } 
   }
 }
@@ -294,10 +315,10 @@ SiStripConditionsReader::endJob()
   std::ostringstream output; 
 
   std::vector<float>  theBoundaries_;
-  std::map<std::string, std::vector<float> > the_gain_averages_;
+  std::map<partitions::layers, std::vector<float> > the_gain_averages_;
   
   output<<" the IOVs are at :" << std::endl;
-  for(std::map< int,std::map<std::string,TH1D*> >::iterator it = gainTrendByPartition_.begin(); it != gainTrendByPartition_.end(); ++it) {
+  for(std::map< int,std::map<partitions::layers,TH1D*> >::iterator it = gainTrendByPartition_.begin(); it != gainTrendByPartition_.end(); ++it) {
     theBoundaries_.push_back(it->first);
     output<<" - "<< it->first << std::endl;
   }
@@ -308,22 +329,24 @@ SiStripConditionsReader::endJob()
 
     output<<"|====================================== " << std::endl
 	  <<"| run: "<< the_r << std::endl; 
-
-    for(std::vector<std::string>::iterator it = partitions.begin() ; it != partitions.end(); ++it){
+    
+    for(int j = partitions::TIBL1; j!=partitions::NUM_OF_TYPES; j++){
+       partitions::layers part = (partitions::layers) j;           
 
       auto theMap = gainTrendByPartition_[the_r];
       
-      the_gain_averages_[(*it)].push_back( theMap[(*it)]->GetMean() );
-      output<<"| "<< (*it) << " <G>: "<< std::setw(4) << the_gain_averages_[(*it)][i] << std::endl;
+      the_gain_averages_[part].push_back( theMap[part]->GetMean() );
+      output<<"| "<< this->getStringFromEnum(part) << " <G>: "<< std::setw(4) << the_gain_averages_[part][i] << std::endl;
     }    
   }
   
-  for (std::vector<std::string>::iterator it = partitions.begin() ; it != partitions.end(); ++it){
-    g_GainsByPartition_ByIOV[(*it)] = fs->make<TGraph>(theBoundaries_.size(),&(theBoundaries_[0]),&(the_gain_averages_[(*it)][0]));
-    g_GainsByPartition_ByIOV[(*it)]->SetName(Form("g_average_Gain_%s",(*it).c_str()) );
-    g_GainsByPartition_ByIOV[(*it)]->SetTitle(Form("average gain in %s",(*it).c_str()));
-    g_GainsByPartition_ByIOV[(*it)]->GetXaxis()->SetTitle("IOV (run number)");
-    g_GainsByPartition_ByIOV[(*it)]->GetYaxis()->SetTitle("#LT G1*G2 #GT");
+  for(int i = partitions::TIBL1; i!=partitions::NUM_OF_TYPES; i++){
+    partitions::layers part = (partitions::layers) i;    
+    g_GainsByPartition_ByIOV[part] = fs->make<TGraph>(theBoundaries_.size(),&(theBoundaries_[0]),&(the_gain_averages_[part][0]));
+    g_GainsByPartition_ByIOV[part]->SetName(Form("g_average_Gain_%s",this->getStringFromEnum(part).c_str()) );
+    g_GainsByPartition_ByIOV[part]->SetTitle(Form("average gain in %s",this->getStringFromEnum(part).c_str()));
+    g_GainsByPartition_ByIOV[part]->GetXaxis()->SetTitle("IOV (run number)");
+    g_GainsByPartition_ByIOV[part]->GetYaxis()->SetTitle("#LT G1*G2 #GT");
   }
 
   /// Final output - either message logger or output file:
@@ -364,6 +387,27 @@ SiStripConditionsReader::typeAndLayerFromDetId( const DetId& detId , const Track
   return std::make_pair( subdetId, layerNumber );
 }
 
+// -------------- method to get the topology from the detID ------------------------------
+std::string 
+SiStripConditionsReader::getStringFromEnum(partitions::layers e)
+{
+  switch(e)
+    {
+    case partitions::TIBL1: return "TIB L1";
+    case partitions::TIBL2: return "TIB L2";
+    case partitions::TIBL3: return "TIB L3";
+    case partitions::TIBL4: return "TIB L4";
+    case partitions::TOBL1: return "TOB L1";
+    case partitions::TOBL2: return "TOB L2";
+    case partitions::TOBL3: return "TOB L3";
+    case partitions::TOBL4: return "TOB L4";
+    case partitions::TOBL5: return "TOB L5";
+    case partitions::TOBL6: return "TOB L6";
+    default: 
+      edm::LogWarning("LogicError") << "Unknown partition: " <<  e;
+      return "";
+    }
+}
 
 
 // ------------ method fills 'descriptions' with the allowed parameters for the module  ------------
