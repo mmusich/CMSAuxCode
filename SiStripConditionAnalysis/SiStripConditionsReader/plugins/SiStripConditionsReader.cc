@@ -63,7 +63,8 @@
 // constants, enums and typedefs
 //
 
-// add new entries bef
+// add new entries before NUM_OF_TYPES
+// otherwise will screw up the counts
 
 namespace partitions {
   enum layers {
@@ -111,10 +112,8 @@ class SiStripConditionsReader : public edm::one::EDAnalyzer<edm::one::SharedReso
       edm::Service<TFileService> fs;
       std::auto_ptr<std::ofstream> output_;
 
-      // std::vector<std::string> partitions {"TIBL1","TIBL2","TIBL3","TIBL4","TOBL1","TOBL2","TOBL3","TOBL4","TOBL5","TOBL6"};
-
       static const int nIOVs_ = 100; 
-      static const int nParts_ = 10;
+      static const int nParts_ = partitions::NUM_OF_TYPES;
 
       int IOVcount_;
 
