@@ -4,6 +4,7 @@
 #include "TGraph.h"
 #include "TH1.h"
 #include "TLegend.h"
+#include "TGraphErrors.h"
 #include "TArrow.h"
 #include "TAxis.h"
 #include "TGaxis.h"
@@ -85,39 +86,65 @@ void CompareGainsTrends(TString file1, TString file2){
   TString label1 = file1.ReplaceAll("GainTrend_","").ReplaceAll(".root","");
   TString label2 = file2.ReplaceAll("GainTrend_","").ReplaceAll(".root","");
 
-  TString listOfGraphs[10] = {"g_average_Gain_TIBL1",
-			      "g_average_Gain_TIBL2",
-			      "g_average_Gain_TIBL3",
-			      "g_average_Gain_TIBL4",
-			      "g_average_Gain_TOBL1",
-			      "g_average_Gain_TOBL2",
-			      "g_average_Gain_TOBL3",
-			      "g_average_Gain_TOBL4",
-			      "g_average_Gain_TOBL5",
-			      "g_average_Gain_TOBL6"};
+  TString listOfGraphs[14] = {"g_average_Gain_TIB L1",
+			      "g_average_Gain_TIB L2",
+			      "g_average_Gain_TIB L3",
+			      "g_average_Gain_TIB L4",
+			      "g_average_Gain_TOB L1",
+			      "g_average_Gain_TOB L2",
+			      "g_average_Gain_TOB L3",
+			      "g_average_Gain_TOB L4",
+			      "g_average_Gain_TOB L5",
+			      "g_average_Gain_TOB L6",
+			      "g_average_Gain_TIDp",
+			      "g_average_Gain_TIDm",
+			      "g_average_Gain_TECp",
+			      "g_average_Gain_TECm"
+			      /*
+			      "g_RMS_Gain_TIB L1",
+			      "g_RMS_Gain_TIB L2",
+			      "g_RMS_Gain_TIB L3",
+			      "g_RMS_Gain_TIB L4",
+			      "g_RMS_Gain_TOB L1",
+			      "g_RMS_Gain_TOB L2",
+			      "g_RMS_Gain_TOB L3",
+			      "g_RMS_Gain_TOB L4",
+			      "g_RMS_Gain_TOB L5",
+			      "g_RMS_Gain_TOB L6",
+			      "g_RMS_Gain_TIDp",
+			      "g_RMS_Gain_TIDm",
+			      "g_RMS_Gain_TECp",
+			      "g_RMS_Gain_TECm"
+			      */
+			      };
   
-  TCanvas *c1[10]; 
+  TCanvas *c1[14]; 
 
-  for(int iGraph=0;iGraph<10;iGraph++){
+  for(int iGraph=0;iGraph<14;iGraph++){
     
     std::cout<<listOfGraphs[iGraph]<<std::endl;
     c1[iGraph] = new TCanvas(listOfGraphs[iGraph],listOfGraphs[iGraph],1200,800);
-    TGraph  *a = (TGraph*)f1->Get("SiStripGainAverage/"+listOfGraphs[iGraph]);
-    TGraph  *b = (TGraph*)f2->Get("SiStripGainAverage/"+listOfGraphs[iGraph]);
+    TGraphErrors  *a = (TGraphErrors*)f1->Get("SiStripGainAverage/"+listOfGraphs[iGraph]);
+    TGraphErrors  *b = (TGraphErrors*)f2->Get("SiStripGainAverage/"+listOfGraphs[iGraph]);
 
     c1[iGraph]->cd();
 
     a->SetLineColor(kRed);
     b->SetLineColor(kBlue);
     
-    a->SetFillColor(kRed);
-    b->SetFillColor(kBlue);
+    a->SetFillColorAlpha(kRed-1,  0.35);
+    b->SetFillColorAlpha(kBlue-1, 0.35);
+
+    /*
+      a->SetFillColor(kRed);
+      b->SetFillColor(kBlue);
+    */
 
     a->SetMarkerColor(kRed);
     b->SetMarkerColor(kBlue);
 
     a->SetMarkerStyle(20);
-    b->SetMarkerStyle(22);
+    b->SetMarkerStyle(21);
 
     a->SetMarkerSize(2);
     b->SetMarkerSize(2);
@@ -129,21 +156,36 @@ void CompareGainsTrends(TString file1, TString file2){
     lego->SetLineWidth(0);
     lego->SetBorderSize(0);
     lego->SetFillColor(0);
-    lego->AddEntry(a,label1,"PL");
-    lego->AddEntry(b,label2,"PL");
+    lego->AddEntry(a,label1,"PF");
+    lego->AddEntry(b,label2,"P");
 
-    a->GetYaxis()->SetRangeUser(0.8,1.25);
-    b->GetYaxis()->SetRangeUser(0.8,1.25);
+    TString title = a->GetName();
+
+    if(title.Contains("average")){
+      a->GetYaxis()->SetRangeUser(0.6,1.4);
+      b->GetYaxis()->SetRangeUser(0.6,1.4);
+    } else {
+      a->GetYaxis()->SetRangeUser(0.1,0.2);
+      b->GetYaxis()->SetRangeUser(0.1,0.2);
+    }
 
     a->GetXaxis()->SetNdivisions(305);
     b->GetXaxis()->SetNdivisions(305);
     
+    /*
+      a->SetFillStyle(3003);
+      b->SetFillStyle(3003);
+    */
+
     beautify(a);
     beautify(b);
 
-    a->Draw("APL");
-    b->Draw("PLsame");
+    a->Draw("3A");
+    // b->Draw("3same");
     
+    a->Draw("PLsame");
+    b->Draw("PLsame");
+
     lego->Draw("same");
 
     static const Int_t nIOV_a = a->GetN();
@@ -162,7 +204,7 @@ void CompareGainsTrends(TString file1, TString file2){
 
     for(Int_t IOV_ofA=0;IOV_ofA<nIOV_a;IOV_ofA++){
       a->GetPoint(IOV_ofA,ax[IOV_ofA],ay[IOV_ofA]); 
-      a_lines[IOV_ofA] = new TArrow(ax[IOV_ofA],(c1[iGraph]->GetUymin()),ax[IOV_ofA],(c1[iGraph]->GetUymin()+0.1),0.5,"|>");
+      a_lines[IOV_ofA] = new TArrow(ax[IOV_ofA],(c1[iGraph]->GetUymin()),ax[IOV_ofA],(c1[iGraph]->GetUymin()+0.2*(c1[iGraph]->GetUymax()-c1[iGraph]->GetUymin()) ),0.5,"|>");
       a_lines[IOV_ofA]->SetLineColor(kRed);
       a_lines[IOV_ofA]->SetLineStyle(1);
       a_lines[IOV_ofA]->SetLineWidth(1);
@@ -171,7 +213,7 @@ void CompareGainsTrends(TString file1, TString file2){
 
     for(Int_t IOV_ofB=0;IOV_ofB<nIOV_b;IOV_ofB++){
       b->GetPoint(IOV_ofB,bx[IOV_ofB],by[IOV_ofB]); 
-      b_lines[IOV_ofB] = new TArrow(bx[IOV_ofB],c1[iGraph]->GetUymin(),bx[IOV_ofB],(c1[iGraph]->GetUymin()+0.1),0.5,"|>");
+      b_lines[IOV_ofB] = new TArrow(bx[IOV_ofB],c1[iGraph]->GetUymin(),bx[IOV_ofB],(c1[iGraph]->GetUymin()+0.1*(c1[iGraph]->GetUymax()-c1[iGraph]->GetUymin())),0.5,"|>");
       b_lines[IOV_ofB]->SetLineColor(kBlue);
       b_lines[IOV_ofB]->SetLineStyle(1);
       b_lines[IOV_ofB]->SetLineWidth(1);
@@ -230,6 +272,10 @@ void CompareGainsTrends(TString file1, TString file2){
   
     TString canvasName  = listOfGraphs[iGraph]+".pdf";
     TString canvasName2 = listOfGraphs[iGraph]+".png";
+
+    canvasName.ReplaceAll(" ","_");
+    canvasName2.ReplaceAll(" ","_");
+
     c1[iGraph]->SaveAs(canvasName);
     c1[iGraph]->SaveAs(canvasName2);
     //delete c1;

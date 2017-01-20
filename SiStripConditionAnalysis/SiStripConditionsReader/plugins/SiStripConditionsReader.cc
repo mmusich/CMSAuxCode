@@ -32,6 +32,7 @@
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
 
+#include "CondFormats/RunInfo/interface/RunInfo.h"
 #include "CondFormats/SiStripObjects/interface/SiStripApvGain.h"
 #include "CondFormats/DataRecord/interface/SiStripApvGainRcd.h"
 #include "CalibFormats/SiStripObjects/interface/SiStripGain.h"
@@ -39,6 +40,10 @@
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
 #include "Geometry/Records/interface/TrackerTopologyRcd.h"
+#include "CalibFormats/SiStripObjects/interface/SiStripQuality.h"
+#include "CalibTracker/Records/interface/SiStripQualityRcd.h"
+#include "CalibTracker/Records/interface/SiStripDetCablingRcd.h"
+#include "CalibFormats/SiStripObjects/interface/SiStripDetCabling.h"
 
 // ROOT includes
 
@@ -48,6 +53,7 @@
 #include "TH1I.h"
 #include "TH2D.h"
 #include "TGraph.h"
+#include "TGraphErrors.h"
 
 #include <sstream>
 #include <fstream>
@@ -78,6 +84,10 @@ namespace partitions {
     TOBL4,
     TOBL5,
     TOBL6,
+    TIDP,
+    TIDM,
+    TECP,
+    TECM,
     NUM_OF_TYPES
   };
 }
@@ -105,10 +115,13 @@ class SiStripConditionsReader : public edm::one::EDAnalyzer<edm::one::SharedReso
       virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
       virtual void endJob() override;
       std::string getStringFromEnum(partitions::layers e);
-      std::pair<int,int> typeAndLayerFromDetId( const DetId& detId , const TrackerTopology* tTopo) const;
+      std::pair<int,std::pair<int,int> > typeAndLayerFromDetId( const DetId& detId , const TrackerTopology* tTopo) const;
   
       // ----------member data ---------------------------
-    
+
+      /*!< Description of disabled detector channels. */
+      SiStripQuality*  siStripQuality_; 
+
       edm::Service<TFileService> fs;
       std::auto_ptr<std::ofstream> output_;
 
@@ -123,7 +136,8 @@ class SiStripConditionsReader : public edm::one::EDAnalyzer<edm::one::SharedReso
       std::map<int,std::map<partitions::layers,TH1D*> > gainTrendByPartition_ ; 
       TH1D* h_gainByPart_[nParts_][nIOVs_];
 
-      std::map<partitions::layers , TGraph* > g_GainsByPartition_ByIOV;
+      std::map<partitions::layers , TGraphErrors* > g_GainsByPartition_ByIOV;
+      std::map<partitions::layers , TGraph* >       g_GainsRMSByPartition_ByIOV;
 
 };
 
@@ -135,30 +149,31 @@ class SiStripConditionsReader : public edm::one::EDAnalyzer<edm::one::SharedReso
 // constructors and destructor
 //
 SiStripConditionsReader::SiStripConditionsReader(const edm::ParameterSet& iConfig)
-
 {
-   //now do what ever initialization is needed
-   usesResource("TFileService");
-   IOVcount_=0;
-   
-   std::string fileName(iConfig.getUntrackedParameter<std::string>("rawFileName"));
-   if (fileName.size()) {
-     output_.reset(new std::ofstream(fileName.c_str()));
-     if (!output_->good()) {
-       edm::LogError("IOproblem") << "Could not open output file " << fileName << ".";
-       output_.reset();
-     }
-   }
+  //now do what ever initialization is needed
   
+  siStripQuality_ = 0;
+  siStripQuality_ = new SiStripQuality();
+ 
+  usesResource("TFileService");
+  IOVcount_=0;
+  
+  std::string fileName(iConfig.getUntrackedParameter<std::string>("rawFileName"));
+  if (fileName.size()) {
+    output_.reset(new std::ofstream(fileName.c_str()));
+    if (!output_->good()) {
+      edm::LogError("IOproblem") << "Could not open output file " << fileName << ".";
+       output_.reset();
+    }
+  } 
 }
 
 
 SiStripConditionsReader::~SiStripConditionsReader()
 {
- 
-   // do anything here that needs to be done at desctruction time
-   // (e.g. close files, deallocate resources etc.)
-
+  // do anything here that needs to be done at desctruction time
+  // (e.g. close files, deallocate resources etc.)
+  if (siStripQuality_!=0) delete siStripQuality_; 
 }
 
 
@@ -177,6 +192,10 @@ SiStripConditionsReader::analyze(const edm::Event& iEvent, const edm::EventSetup
    iSetup.get<TrackerTopologyRcd>().get(tTopoHandle);
    const TrackerTopology* tTopo = tTopoHandle.product();
 
+   //Retrieve the strip quality from conditions
+   //edm::ESHandle<SiStripQuality> SiStripQuality_;
+   //iSetup.get<SiStripQualityRcd>().get(SiStripQuality_);
+      
    bool hasG1IOV = G1watcher_.check(iSetup);
    bool hasG2IOV = G2watcher_.check(iSetup);
 
@@ -201,24 +220,46 @@ SiStripConditionsReader::analyze(const edm::Event& iEvent, const edm::EventSetup
      std::vector<uint32_t> detid;
      SiStripApvGain_->getDetIds(detid);
 
+     // Retrieve the SiStripDetCabling description
+     edm::ESHandle<SiStripDetCabling> detCabling_;     
+     iSetup.get<SiStripDetCablingRcd>().get( detCabling_ );
+     
+     //  Retrieve the RunInfo object
+     edm::ESHandle<RunInfo> runInfo;
+     iSetup.get<RunInfoRcd>().get( runInfo );
+     
+     siStripQuality_->add( detCabling_.product() );
+     siStripQuality_->add( runInfo.product() );
+     siStripQuality_->cleanUp();
+     siStripQuality_->fillBadComponents();
+     
      for (size_t id=0;id<detid.size();id++){
        SiStripApvGain::Range rangeG1=SiStripApvGain_->getRange(detid[id],0);	
        SiStripApvGain::Range rangeG2=SiStripApvGain_->getRange(detid[id],1);	
 	      
-       int apv=0;
+       int apv=0,nAPV=0;
        for(int it=0;it<rangeG1.second-rangeG1.first;it++){
-	 
+	 nAPV++;
+
+	 //std::cout<<"nAPV: "<<nAPV<<std::endl;
+
+	 // check if the quality was OK
+	 if(siStripQuality_->IsApvBad(detid[id],nAPV)){
+	   //std::cout<<"DetId: "<<detid[id]<<" APV"<<nAPV<<" is bad!"<<std::endl;
+	   continue;
+	 }	    
+
 	 float G1 = SiStripApvGain_->getApvGain(it,rangeG1);
 	 float G2 = SiStripApvGain_->getApvGain(it,rangeG2);
 
 	 float G1G2 = G1*G2;
 
-	 std::pair<int,int> packedTopo = this->typeAndLayerFromDetId(detid[id],tTopo);
+	 std::pair<int,std::pair<int,int> > packedTopo = this->typeAndLayerFromDetId(detid[id],tTopo);
 	 
 	 // here starts TIB
 	 if(packedTopo.first == 3){
 	
-	   switch (packedTopo.second)
+	   switch (packedTopo.second.first)
 	     {
 	     case 1:
 	       h_gainByPart_[partitions::TIBL1][IOVcount_]->Fill(G1G2); 
@@ -237,13 +278,13 @@ SiStripConditionsReader::analyze(const edm::Event& iEvent, const edm::EventSetup
 	       break;
 	       
 	     default:
-	       edm::LogWarning("LogicError") << "Unknown layer: " <<  packedTopo.second;
+	       edm::LogWarning("LogicError") << "Unknown layer: " <<  packedTopo.second.first;
 	     } 
 	 }
 	 
 	 // here starts TOB
 	 if(packedTopo.first == 5){
-	   switch (packedTopo.second) 
+	   switch (packedTopo.second.first) 
 	     {
 	     case 1:
 	       h_gainByPart_[partitions::TOBL1][IOVcount_]->Fill(G1G2); 
@@ -270,13 +311,49 @@ SiStripConditionsReader::analyze(const edm::Event& iEvent, const edm::EventSetup
 	       break;
 
 	     default:
-	       edm::LogWarning("LogicError") << "Unknown layer: " <<  packedTopo.second;
+	       edm::LogWarning("LogicError") << "Unknown layer: " <<  packedTopo.second.first;
 	     }
 	 }
 
+	 // here starts TID
+	 if(packedTopo.first == 4){
+	   switch (packedTopo.second.second)
+	     {
+	     case 1:
+	       h_gainByPart_[partitions::TIDP][IOVcount_]->Fill(G1G2); 
+	       break;
+	       
+	     case 2:
+	       h_gainByPart_[partitions::TIDM][IOVcount_]->Fill(G1G2); 	       
+	       break;
+	       
+	     default:
+	       edm::LogWarning("LogicError") << "Unknown side: " <<  packedTopo.second.second;
+	     }
+	 }  
+
+	 // here starts TEC
+	 if(packedTopo.first == 6){
+	   switch (packedTopo.second.second)
+	     {
+	     case 1:
+	       h_gainByPart_[partitions::TECP][IOVcount_]->Fill(G1G2); 
+	       break;
+	       
+	     case 2:
+	       h_gainByPart_[partitions::TECM][IOVcount_]->Fill(G1G2); 	       
+	       break;
+	       
+	     default:
+	       edm::LogWarning("LogicError") << "Unknown side: " <<  packedTopo.second.second;
+	     }
+	 }  
+
+
 	 if(DEBUG){
 	   std::cout << "type: " << packedTopo.first;
-	   std::cout << "layer:" << packedTopo.second;
+	   std::cout << "layer:" << packedTopo.second.first;
+	   std::cout << "side: " << packedTopo.second.second;
 	   std::cout << "detid " << detid[id] << " \t " << apv++ << " \t  G1: " << G1  << " \t  G2: " << G2 << " \t G1*G2: " << G1G2 << std::endl;       
 	 }
 
@@ -314,11 +391,14 @@ SiStripConditionsReader::endJob()
   std::ostringstream output; 
 
   std::vector<float>  theBoundaries_;
+  std::vector<float>  ex_;
   std::map<partitions::layers, std::vector<float> > the_gain_averages_;
-  
+  std::map<partitions::layers, std::vector<float> > the_gain_RMS_;
+
   output<<" the IOVs are at :" << std::endl;
   for(std::map< int,std::map<partitions::layers,TH1D*> >::iterator it = gainTrendByPartition_.begin(); it != gainTrendByPartition_.end(); ++it) {
     theBoundaries_.push_back(it->first);
+    ex_.push_back(0.);
     output<<" - "<< it->first << std::endl;
   }
 
@@ -335,17 +415,27 @@ SiStripConditionsReader::endJob()
       auto theMap = gainTrendByPartition_[the_r];
       
       the_gain_averages_[part].push_back( theMap[part]->GetMean() );
-      output<<"| "<< this->getStringFromEnum(part) << " <G>: "<< std::setw(4) << the_gain_averages_[part][i] << std::endl;
+      the_gain_RMS_[part].push_back( theMap[part]->GetRMS() );
+	    
+      output<<"| "<< this->getStringFromEnum(part) << " <G>: "<< std::setw(4) << the_gain_averages_[part][i] << " RMS(G): "<< std::setw(4) << the_gain_RMS_[part][i] << std::endl;
     }    
   }
   
   for(int i = partitions::TIBL1; i!=partitions::NUM_OF_TYPES; i++){
     partitions::layers part = (partitions::layers) i;    
-    g_GainsByPartition_ByIOV[part] = fs->make<TGraph>(theBoundaries_.size(),&(theBoundaries_[0]),&(the_gain_averages_[part][0]));
+
+    g_GainsByPartition_ByIOV[part] = fs->make<TGraphErrors>(theBoundaries_.size(),&(theBoundaries_[0]),&(the_gain_averages_[part][0]),&(ex_[0]),&(the_gain_RMS_[part][0]));
     g_GainsByPartition_ByIOV[part]->SetName(Form("g_average_Gain_%s",this->getStringFromEnum(part).c_str()) );
     g_GainsByPartition_ByIOV[part]->SetTitle(Form("average gain in %s",this->getStringFromEnum(part).c_str()));
     g_GainsByPartition_ByIOV[part]->GetXaxis()->SetTitle("IOV (run number)");
     g_GainsByPartition_ByIOV[part]->GetYaxis()->SetTitle("#LT G1*G2 #GT");
+    
+    g_GainsRMSByPartition_ByIOV[part] = fs->make<TGraph>(theBoundaries_.size(),&(theBoundaries_[0]),&(the_gain_RMS_[part][0]));
+    g_GainsRMSByPartition_ByIOV[part]->SetName(Form("g_RMS_Gain_%s",this->getStringFromEnum(part).c_str()) );
+    g_GainsRMSByPartition_ByIOV[part]->SetTitle(Form("RMS of gain in %s",this->getStringFromEnum(part).c_str()));
+    g_GainsRMSByPartition_ByIOV[part]->GetXaxis()->SetTitle("IOV (run number)");
+    g_GainsRMSByPartition_ByIOV[part]->GetYaxis()->SetTitle("RMS(G1*G2)");
+
   }
 
   /// Final output - either message logger or output file:
@@ -355,35 +445,41 @@ SiStripConditionsReader::endJob()
 }
 
 // -------------- method to get the topology from the detID ------------------------------
-std::pair<int,int> 
+std::pair<int,std::pair<int,int> > 
 SiStripConditionsReader::typeAndLayerFromDetId( const DetId& detId , const TrackerTopology* tTopo) const
 {
 
   int layerNumber = 0;
+  int sideNumber  = 0;
   unsigned int subdetId = static_cast<unsigned int>(detId.subdetId());
   
   if ( subdetId == StripSubdetector::TIB) { 	   
     layerNumber = tTopo->tibLayer(detId.rawId());
+    sideNumber  = tTopo->tibSide(detId.rawId());
   }
   else if ( subdetId ==  StripSubdetector::TOB ){
     layerNumber = tTopo->tobLayer(detId.rawId());
+    sideNumber  = tTopo->tobSide(detId.rawId());
   }
   else if ( subdetId ==  StripSubdetector::TID) { 
     layerNumber = tTopo->tidWheel(detId.rawId());
+    sideNumber  = tTopo->tidSide(detId.rawId());
   }
   else if ( subdetId ==  StripSubdetector::TEC ){ 
-    layerNumber = tTopo->tecWheel(detId.rawId()); 
+    layerNumber = tTopo->tecWheel(detId.rawId());
+    sideNumber  = tTopo->tecSide(detId.rawId()); 
   }
   else if ( subdetId ==  PixelSubdetector::PixelBarrel ) { 
     layerNumber = tTopo->pxbLayer(detId.rawId());  
   }
   else if ( subdetId ==  PixelSubdetector::PixelEndcap ) { 
-    layerNumber = tTopo->pxfDisk(detId.rawId());  
+    layerNumber = tTopo->pxfDisk(detId.rawId()); 
+    sideNumber  = tTopo->pxfSide(detId.rawId());
   }
   else
     edm::LogWarning("LogicError") << "Unknown subdetid: " <<  subdetId;
 
-  return std::make_pair( subdetId, layerNumber );
+  return std::make_pair( subdetId, std::make_pair(layerNumber,sideNumber) );
 }
 
 // -------------- method to get the topology from the detID ------------------------------
@@ -402,6 +498,10 @@ SiStripConditionsReader::getStringFromEnum(partitions::layers e)
     case partitions::TOBL4: return "TOB L4";
     case partitions::TOBL5: return "TOB L5";
     case partitions::TOBL6: return "TOB L6";
+    case partitions::TIDP:  return "TIDp";
+    case partitions::TIDM:  return "TIDm";
+    case partitions::TECP:  return "TECp";
+    case partitions::TECM:  return "TECm";
     default: 
       edm::LogWarning("LogicError") << "Unknown partition: " <<  e;
       return "";
