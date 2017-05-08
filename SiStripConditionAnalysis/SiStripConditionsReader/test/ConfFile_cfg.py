@@ -22,7 +22,7 @@ process.load("FWCore.MessageService.MessageLogger_cfi")
 process.MessageLogger.destinations = ['cout', 'cerr']
 process.MessageLogger.cerr.FwkReport.reportEvery = 10000                           # do not clog output with IO
 
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(100000) )      
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(20000) )      
 
 ####################################################################
 # Empty source 
@@ -68,7 +68,8 @@ process.TFileService = cms.Service("TFileService",
 # Load and configure analyzer
 ###################################################################
 process.SiStripGainAverage = cms.EDAnalyzer('SiStripConditionsReader',
-                                            rawFileName = cms.untracked.string("log_"+options.rawFile+".txt")
+                                            rawFileName = cms.untracked.string("log_"+options.rawFile+".txt"),
+                                            applySiStripQuality = cms.untracked.bool(False)
                                             )
 
 ####################################################################
