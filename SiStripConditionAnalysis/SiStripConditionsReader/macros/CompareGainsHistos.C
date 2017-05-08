@@ -14,13 +14,17 @@
 #include "iostream"
 #include "TPaveText.h"
 
+/*--------------------------------------------------------------------*/
 void beautify(TH1F *g){
+/*--------------------------------------------------------------------*/
   g->GetXaxis()->SetLabelFont(42);
   g->GetYaxis()->SetLabelFont(42);
   g->GetYaxis()->SetLabelSize(.05);
   g->GetXaxis()->SetLabelSize(.05);
   g->GetYaxis()->SetTitleSize(.05);
   g->GetXaxis()->SetTitleSize(.05);
+  g->GetXaxis()->CenterTitle(true);
+  g->GetYaxis()->CenterTitle(true);
   g->GetXaxis()->SetTitleOffset(1.1);
   g->GetYaxis()->SetTitleOffset(1.2);
   g->GetXaxis()->SetTitleFont(42);

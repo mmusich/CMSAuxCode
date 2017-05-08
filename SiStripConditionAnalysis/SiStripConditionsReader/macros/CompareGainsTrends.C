@@ -1,4 +1,6 @@
 #include "TFile.h"
+#include "TMath.h"
+#include "TObjArray.h"
 #include "TStyle.h"
 #include "TCanvas.h"
 #include "TGraph.h"
@@ -13,12 +15,47 @@
 #include "iostream"
 #include "TPaveText.h"
 
+/*--------------------------------------------------------------------*/
+std::pair<Double_t,Double_t> getExtrema(TObjArray *array){
+/*--------------------------------------------------------------------*/
+
+  TGraph* g0 = static_cast<TGraph*>(array->At(0));
+
+  Double_t theMaximum = TMath::MinElement(g0->GetN(),g0->GetY()); 
+  Double_t theMinimum = TMath::MaxElement(g0->GetN(),g0->GetY()); 
+
+  //cout << theMinimum << " " << theMaximum << endl;
+  
+  for(Int_t i = 0; i< array->GetSize(); i++){
+
+    TGraph* gi = static_cast<TGraph*>(array->At(i));
+    Double_t tempMax = TMath::MaxElement(gi->GetN(),gi->GetY());
+    Double_t tempMin = TMath::MinElement(gi->GetN(),gi->GetY());
+
+    if( tempMax > theMaximum){
+      theMaximum = tempMax;
+      //cout<<"i= "<<i<<" theMaximum="<<theMaximum<<endl;
+    }
+
+    if( tempMin < theMinimum){
+      theMinimum = tempMin;
+      //cout<<"i= "<<i<<" theMinimum="<<theMaximum<<endl;
+    }
+  }
+  
+  return std::make_pair(0.95*theMinimum,1.02*theMaximum);
+}
+
+/*--------------------------------------------------------------------*/
 void beautify(TGraph *g){
+/*--------------------------------------------------------------------*/
   g->GetXaxis()->SetLabelFont(42);
   g->GetYaxis()->SetLabelFont(42);
   g->GetYaxis()->SetLabelSize(.05);
   g->GetXaxis()->SetLabelSize(.05);
   g->GetYaxis()->SetTitleSize(.05);
+  g->GetXaxis()->CenterTitle(true);
+  g->GetYaxis()->CenterTitle(true);
   g->GetXaxis()->SetTitleSize(.05);
   g->GetXaxis()->SetTitleOffset(1.1);
   g->GetYaxis()->SetTitleOffset(1.2);
@@ -76,7 +113,7 @@ void setStyle(){
 
 }
 
-void CompareGainsTrends(TString file1, TString file2){
+void CompareGainsTrends(TString file1, TString file2,int theIOVNumber=0){
   
   setStyle();
 
@@ -86,10 +123,12 @@ void CompareGainsTrends(TString file1, TString file2){
   TString label1 = file1.ReplaceAll("GainTrend_","").ReplaceAll(".root","");
   TString label2 = file2.ReplaceAll("GainTrend_","").ReplaceAll(".root","");
 
-  TString listOfGraphs[14] = {"g_average_Gain_TIB L1",
+  TString listOfGraphs[16] = {"g_average_Gain_TIB",
+			      "g_average_Gain_TIB L1",
 			      "g_average_Gain_TIB L2",
 			      "g_average_Gain_TIB L3",
 			      "g_average_Gain_TIB L4",
+			      "g_average_Gain_TOB",
 			      "g_average_Gain_TOB L1",
 			      "g_average_Gain_TOB L2",
 			      "g_average_Gain_TOB L3",
@@ -118,9 +157,9 @@ void CompareGainsTrends(TString file1, TString file2){
 			      */
 			      };
   
-  TCanvas *c1[14]; 
+  TCanvas *c1[16]; 
 
-  for(int iGraph=0;iGraph<14;iGraph++){
+  for(int iGraph=0;iGraph<16;iGraph++){
     
     std::cout<<listOfGraphs[iGraph]<<std::endl;
     c1[iGraph] = new TCanvas(listOfGraphs[iGraph],listOfGraphs[iGraph],1200,800);
@@ -143,31 +182,44 @@ void CompareGainsTrends(TString file1, TString file2){
     a->SetMarkerColor(kRed);
     b->SetMarkerColor(kBlue);
 
-    a->SetMarkerStyle(20);
-    b->SetMarkerStyle(21);
+    a->SetMarkerStyle(kOpenSquare);
+    b->SetMarkerStyle(kFullCircle);
 
     a->SetMarkerSize(2);
     b->SetMarkerSize(2);
 
-    a->SetLineStyle(9);
-    b->SetLineStyle(9);
+    a->SetLineStyle(1);
+    b->SetLineStyle(1);
 
     TLegend *lego = new TLegend(0.75,0.80,0.90,0.90);
     lego->SetLineWidth(0);
     lego->SetBorderSize(0);
     lego->SetFillColor(0);
-    lego->AddEntry(a,label1,"PF");
+    lego->AddEntry(a,label1,"P");
     lego->AddEntry(b,label2,"P");
 
     TString title = a->GetName();
 
+    TObjArray *array = new TObjArray(2); 
+    array->Add(a);
+    array->Add(b);
+
+    std::pair<Double_t,Double_t> extrema =  getExtrema(array);
+    
+    delete array;
+    
+    a->GetYaxis()->SetRangeUser(extrema.first,extrema.second);
+    b->GetYaxis()->SetRangeUser(extrema.first,extrema.second);
+    
+    /*
     if(title.Contains("average")){
-      a->GetYaxis()->SetRangeUser(0.6,1.4);
-      b->GetYaxis()->SetRangeUser(0.6,1.4);
+      a->GetYaxis()->SetRangeUser(0.9,1.2);
+      b->GetYaxis()->SetRangeUser(0.9,1.2);
     } else {
       a->GetYaxis()->SetRangeUser(0.1,0.2);
       b->GetYaxis()->SetRangeUser(0.1,0.2);
     }
+    */
 
     a->GetXaxis()->SetNdivisions(305);
     b->GetXaxis()->SetNdivisions(305);
@@ -180,11 +232,11 @@ void CompareGainsTrends(TString file1, TString file2){
     beautify(a);
     beautify(b);
 
-    a->Draw("3A");
+    a->Draw("AP");
     // b->Draw("3same");
-    
-    a->Draw("PLsame");
-    b->Draw("PLsame");
+    // a->Draw("PLsame");
+
+    b->Draw("Psame");
 
     lego->Draw("same");
 
@@ -270,6 +322,45 @@ void CompareGainsTrends(TString file1, TString file2){
       runnumbers[IOV_ofA]->Draw("same");
     }
   
+        TArrow* theIOV = new TArrow(theIOVNumber,c1[iGraph]->GetUymin(),theIOVNumber,c1[iGraph]->GetUymax());
+    theIOV->SetLineColor(kMagenta);
+    theIOV->SetLineStyle(1);
+    theIOV->SetLineWidth(3);
+    theIOV->Draw("same");
+
+    Int_t ix1;
+    Int_t ix2;
+    Int_t iw = gPad->GetWw();
+    Int_t ih = gPad->GetWh();
+    Double_t x1p,y1p,x2p,y2p;
+    gPad->GetPadPar(x1p,y1p,x2p,y2p);
+    ix1 = (Int_t)(iw*x1p);
+    ix2 = (Int_t)(iw*x2p);
+    Double_t wndc  = TMath::Min(1.,(Double_t)iw/(Double_t)ih);
+    Double_t rw    = wndc/(Double_t)iw;
+    Double_t x1ndc = (Double_t)ix1*rw;
+    Double_t x2ndc = (Double_t)ix2*rw;
+    Double_t rx1,ry1,rx2,ry2;
+    gPad->GetRange(rx1,ry1,rx2,ry2);
+    Double_t rx = (x2ndc-x1ndc)/(rx2-rx1);
+    Double_t _sx;
+    _sx = rx*(theIOVNumber-rx1)+x1ndc+0.015; //-0.05;
+    Double_t _dx = _sx+0.1;
+    
+    TPaveText *theIOVtext = new TPaveText(_sx,0.84,_dx,0.87,"NDC");
+    theIOVtext->SetFillColor(kYellow);
+    theIOVtext->SetLineColor(kMagenta);
+    theIOVtext->SetLineWidth(2);
+    theIOVtext->SetTextColor(kMagenta);
+    theIOVtext->SetTextColor(1);
+    theIOVtext->SetTextFont(42);
+    //theIOVtext->SetTextAlign(11);
+    TText *textRun = theIOVtext->AddText(Form("%i",theIOVNumber));
+    textRun->SetTextSize(0.040);
+    textRun->SetTextColor(kMagenta);
+      
+    theIOVtext->Draw("same");
+
     TString canvasName  = listOfGraphs[iGraph]+".pdf";
     TString canvasName2 = listOfGraphs[iGraph]+".png";
 
