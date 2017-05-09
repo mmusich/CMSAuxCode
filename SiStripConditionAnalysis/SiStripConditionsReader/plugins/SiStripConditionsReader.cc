@@ -88,6 +88,12 @@ namespace partitions {
     TOBL6,
     TIDP,
     TIDM,
+    TIDPD1,
+    TIDPD2,
+    TIDPD3,
+    TIDMD1,
+    TIDMD2,
+    TIDMD3,
     TECP,
     TECM,
     NUM_OF_TYPES
@@ -134,7 +140,9 @@ class SiStripConditionsReader : public edm::one::EDAnalyzer<edm::one::SharedReso
 
       edm::ESWatcher<SiStripApvGainRcd>  G1watcher_;
       edm::ESWatcher<SiStripApvGain2Rcd> G2watcher_;
-  
+
+
+      // Product G1*G2
       std::map<int,std::map<partitions::layers,TH1D*> > gainTrendByPartition_ ; 
       TH1D* h_gainByPart_[nParts_][nIOVs_];
 
@@ -143,7 +151,7 @@ class SiStripConditionsReader : public edm::one::EDAnalyzer<edm::one::SharedReso
 
       std::map<partitions::layers , TH1F* > h_GainsByPartition_ByIOV;
       std::map<partitions::layers , TH1F* > h_GainsRMSByPartition_ByIOV;
-   
+  
       int lastRun_;
       bool applyQuality_;
   
@@ -295,7 +303,7 @@ SiStripConditionsReader::analyze(const edm::Event& iEvent, const edm::EventSetup
 	       break;
 	       
 	     default:
-	       edm::LogWarning("LogicError") << "Unknown layer: " <<  packedTopo.second.first;
+	       edm::LogWarning("LogicError") << "Unknown TIB layer: " <<  packedTopo.second.first;
 	     } 
 	 }
 	 
@@ -331,7 +339,7 @@ SiStripConditionsReader::analyze(const edm::Event& iEvent, const edm::EventSetup
 	       break;
 
 	     default:
-	       edm::LogWarning("LogicError") << "Unknown layer: " <<  packedTopo.second.first;
+	       edm::LogWarning("LogicError") << "Unknown TOB layer: " <<  packedTopo.second.first;
 	     }
 	 }
 
@@ -341,14 +349,32 @@ SiStripConditionsReader::analyze(const edm::Event& iEvent, const edm::EventSetup
 	     {
 	     case 1:
 	       h_gainByPart_[partitions::TIDM][IOVcount_]->Fill(G1G2); 
+	       if(packedTopo.second.first==1){
+		 h_gainByPart_[partitions::TIDMD1][IOVcount_]->Fill(G1G2); 
+	       } else if(packedTopo.second.first==2){
+		 h_gainByPart_[partitions::TIDMD2][IOVcount_]->Fill(G1G2); 
+	       } else if(packedTopo.second.first==3){
+		 h_gainByPart_[partitions::TIDMD3][IOVcount_]->Fill(G1G2); 
+	       } else{
+		 edm::LogWarning("LogicError") << "Unknown TID disk: " <<  packedTopo.second.first;
+	       }	       		 
 	       break;
 	       
 	     case 2:
 	       h_gainByPart_[partitions::TIDP][IOVcount_]->Fill(G1G2); 	       
+	       if(packedTopo.second.first==1){
+		 h_gainByPart_[partitions::TIDPD1][IOVcount_]->Fill(G1G2); 
+	       } else if(packedTopo.second.first==2){
+		 h_gainByPart_[partitions::TIDPD2][IOVcount_]->Fill(G1G2); 
+	       } else if(packedTopo.second.first==3){
+		 h_gainByPart_[partitions::TIDPD3][IOVcount_]->Fill(G1G2); 
+	       } else{
+		 edm::LogWarning("LogicError") << "Unknown TID disk: " <<  packedTopo.second.first;
+	       }
 	       break;
 	       
 	     default:
-	       edm::LogWarning("LogicError") << "Unknown side: " <<  packedTopo.second.second;
+	       edm::LogWarning("LogicError") << "Unknown TID side: " <<  packedTopo.second.second;
 	     }
 	 }  
 
@@ -365,7 +391,7 @@ SiStripConditionsReader::analyze(const edm::Event& iEvent, const edm::EventSetup
 	       break;
 	       
 	     default:
-	       edm::LogWarning("LogicError") << "Unknown side: " <<  packedTopo.second.second;
+	       edm::LogWarning("LogicError") << "Unknown TEC side: " <<  packedTopo.second.second;
 	     }
 	 }  
 
@@ -434,6 +460,8 @@ SiStripConditionsReader::endJob()
 
       auto theMap = gainTrendByPartition_[the_r];
       
+      theMap[part]->SetTitle(Form("%s Gain for IOV %i (%.0f,%.0f)",this->getStringFromEnum(part).c_str(),i,theBoundaries_[i],theBoundaries_[i+1]));
+
       the_gain_averages_[part].push_back( theMap[part]->GetMean() );
       the_gain_RMS_[part].push_back( theMap[part]->GetRMS() );
 	    
@@ -554,22 +582,28 @@ SiStripConditionsReader::getStringFromEnum(partitions::layers e)
 {
   switch(e)
     {
-    case partitions::TIB  : return "TIB";
-    case partitions::TIBL1: return "TIB L1";
-    case partitions::TIBL2: return "TIB L2";
-    case partitions::TIBL3: return "TIB L3";
-    case partitions::TIBL4: return "TIB L4";
-    case partitions::TOB  : return "TOB";
-    case partitions::TOBL1: return "TOB L1";
-    case partitions::TOBL2: return "TOB L2";
-    case partitions::TOBL3: return "TOB L3";
-    case partitions::TOBL4: return "TOB L4";
-    case partitions::TOBL5: return "TOB L5";
-    case partitions::TOBL6: return "TOB L6";
-    case partitions::TIDP:  return "TIDp";
-    case partitions::TIDM:  return "TIDm";
-    case partitions::TECP:  return "TECp";
-    case partitions::TECM:  return "TECm";
+    case partitions::TIB  :  return "TIB";
+    case partitions::TIBL1:  return "TIB L1";
+    case partitions::TIBL2:  return "TIB L2";
+    case partitions::TIBL3:  return "TIB L3";
+    case partitions::TIBL4:  return "TIB L4";
+    case partitions::TOB  :  return "TOB";
+    case partitions::TOBL1:  return "TOB L1";
+    case partitions::TOBL2:  return "TOB L2";
+    case partitions::TOBL3:  return "TOB L3";
+    case partitions::TOBL4:  return "TOB L4";
+    case partitions::TOBL5:  return "TOB L5";
+    case partitions::TOBL6:  return "TOB L6";
+    case partitions::TIDP:   return "TIDplus";
+    case partitions::TIDM:   return "TIDminus";
+    case partitions::TIDPD1: return "TID plus Disk 1";
+    case partitions::TIDPD2: return "TID plus Disk 2";
+    case partitions::TIDPD3: return "TID plus Disk 3";
+    case partitions::TIDMD1: return "TID minus Disk 1";
+    case partitions::TIDMD2: return "TID minus Disk 2";
+    case partitions::TIDMD3: return "TID minus Disk 3";  
+    case partitions::TECP:   return "TECplus";
+    case partitions::TECM:   return "TECminus";
     default: 
       edm::LogWarning("LogicError") << "Unknown partition: " <<  e;
       return "";
