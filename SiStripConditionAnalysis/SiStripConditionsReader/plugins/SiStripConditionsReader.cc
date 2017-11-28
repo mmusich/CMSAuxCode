@@ -44,6 +44,7 @@
 #include "CalibTracker/Records/interface/SiStripQualityRcd.h"
 #include "CalibTracker/Records/interface/SiStripDetCablingRcd.h"
 #include "CalibFormats/SiStripObjects/interface/SiStripDetCabling.h"
+#include "DQM/SiStripCommon/interface/TkHistoMap.h" 
 
 // ROOT includes
 
@@ -141,7 +142,6 @@ class SiStripConditionsReader : public edm::one::EDAnalyzer<edm::one::SharedReso
       edm::ESWatcher<SiStripApvGainRcd>  G1watcher_;
       edm::ESWatcher<SiStripApvGain2Rcd> G2watcher_;
 
-
       // Product G1*G2
       std::map<int,std::map<partitions::layers,TH1D*> > gainTrendByPartition_ ; 
       TH1D* h_gainByPart_[nParts_][nIOVs_];
@@ -154,7 +154,9 @@ class SiStripConditionsReader : public edm::one::EDAnalyzer<edm::one::SharedReso
   
       int lastRun_;
       bool applyQuality_;
-  
+      std::string fileName_;
+
+      std::vector<TkHistoMap*> tkhistos;
 };
 
 //
@@ -176,13 +178,13 @@ SiStripConditionsReader::SiStripConditionsReader(const edm::ParameterSet& iConfi
   
   lastRun_=0;
 
-  std::string fileName(iConfig.getUntrackedParameter<std::string>("rawFileName"));
+  fileName_     = iConfig.getUntrackedParameter<std::string>("rawFileName");
   applyQuality_ = iConfig.getUntrackedParameter<bool>("applySiStripQuality",true);
 
-  if (fileName.size()) {
-    output_.reset(new std::ofstream(fileName.c_str()));
+  if (fileName_.size()) {
+    output_.reset(new std::ofstream(fileName_.c_str()));
     if (!output_->good()) {
-      edm::LogError("IOproblem") << "Could not open output file " << fileName << ".";
+      edm::LogError("IOproblem") << "Could not open output file " << fileName_ << ".";
        output_.reset();
     }
   } 
@@ -223,6 +225,9 @@ SiStripConditionsReader::analyze(const edm::Event& iEvent, const edm::EventSetup
    bool hasG1IOV = G1watcher_.check(iSetup);
    bool hasG2IOV = G2watcher_.check(iSetup);
 
+   // open the stream
+   std::ostringstream g1g2dump; 
+
    if ( hasG1IOV || hasG2IOV  ) { 
 
      if(hasG1IOV)
@@ -255,12 +260,22 @@ SiStripConditionsReader::analyze(const edm::Event& iEvent, const edm::EventSetup
      siStripQuality_->add( runInfo.product() );
      siStripQuality_->cleanUp();
      siStripQuality_->fillBadComponents();
+
+     TkHistoMap* tkhisto=nullptr;
+     tkhisto = new TkHistoMap("G1G2",Form("G2G2_%i",run),-1.); //here 
      
+     // clear the stream
+     g1g2dump.clear();
+
      for (size_t id=0;id<detid.size();id++){
+       
+  
+       g1g2dump << detid[id] << " "; 
+
        SiStripApvGain::Range rangeG1=SiStripApvGain_->getRange(detid[id],0);	
        SiStripApvGain::Range rangeG2=SiStripApvGain_->getRange(detid[id],1);	
 	      
-       int apv=0,nAPV=0;
+       int apv=0,nAPV=0;float sumOfGains=0;
        for(int it=0;it<rangeG1.second-rangeG1.first;it++){
 	 nAPV++;
 
@@ -276,8 +291,11 @@ SiStripConditionsReader::analyze(const edm::Event& iEvent, const edm::EventSetup
 	 float G2 = SiStripApvGain_->getApvGain(it,rangeG2);
 
 	 float G1G2 = G1*G2;
+	 sumOfGains+=G1G2;
 
 	 std::pair<int,std::pair<int,int> > packedTopo = this->typeAndLayerFromDetId(detid[id],tTopo);
+
+	 g1g2dump << G1G2 <<" "; 
 	 
 	 // here starts TIB
 	 if(packedTopo.first == 3){
@@ -404,7 +422,26 @@ SiStripConditionsReader::analyze(const edm::Event& iEvent, const edm::EventSetup
 	 }
 
        } // ends loop on APVs
+
+       g1g2dump << std::endl; 
+       if(tkhisto!=nullptr) tkhisto->fill(detid[id],sumOfGains/nAPV);
+
      } // ends loop on detID
+
+     tkhistos.push_back(tkhisto);
+
+     std::auto_ptr<std::ofstream> my_output_;
+     std::string dumpFileName = "g1g2_dumpIOV_"+fileName_+"_"+std::to_string(run)+".txt";
+     if (dumpFileName.size()) {
+       my_output_.reset(new std::ofstream(dumpFileName.c_str()));
+       if (!my_output_->good()) {
+	 edm::LogError("IOproblem") << "Could not open output file " << dumpFileName << ".";
+	 my_output_.reset();
+       }
+     } // end protection
+     if (my_output_.get()) *my_output_ << g1g2dump.str();
+
+     //tkmap_dumps.push_back(g1g2dump);
 
      // increase the IOV counter
      IOVcount_++;
@@ -447,6 +484,19 @@ SiStripConditionsReader::endJob()
     ex_.push_back(0.);
     output<<" - "<< it->first << std::endl;
   }
+
+  // tkhistos
+  
+  unsigned int i=0;
+  for(const auto &tkhisto : tkhistos){
+    std::string bound = std::to_string(theBoundaries_[i]);
+    tkhisto->save("tkHistoMap_"+(bound).substr(0,bound.find("."))+".root");
+    tkhisto->saveAsCanvas("tkHistoMap_"+(bound).substr(0,bound.find("."))+"_Canvas.root","E");
+    i++;
+    delete tkhisto;
+  }
+  
+  // end file
 
   for(unsigned int i=0;i<theBoundaries_.size();i++){
     

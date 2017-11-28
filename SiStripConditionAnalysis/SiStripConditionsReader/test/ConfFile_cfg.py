@@ -25,11 +25,19 @@ process.MessageLogger.cerr.FwkReport.reportEvery = 10000                        
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(20000) )      
 
 ####################################################################
+# Needed services
+####################################################################
+
+process.load("DQMServices.Core.DQMStore_cfg")
+process.load("DQM.SiStripCommon.TkHistoMap_cfi") 
+
+
+####################################################################
 # Empty source 
 ####################################################################
 
 process.source = cms.Source("EmptySource",
-                            firstRun = cms.untracked.uint32(272000),
+                            firstRun = cms.untracked.uint32(290000),
                             numberEventsInRun = cms.untracked.uint32(1),           # a number of events in single run 
                             )
 
