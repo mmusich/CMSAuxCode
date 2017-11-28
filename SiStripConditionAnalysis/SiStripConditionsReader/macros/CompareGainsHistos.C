@@ -128,10 +128,10 @@ void CompareGainsTrends(TString file1, TString file2,int theIOVNumber){
 			      "h_average_Gain_TOB L4",
 			      "h_average_Gain_TOB L5",
 			      "h_average_Gain_TOB L6",
-			      "h_average_Gain_TIDp",
-			      "h_average_Gain_TIDm",
-			      "h_average_Gain_TECp",
-			      "h_average_Gain_TECm",
+			      "h_average_Gain_TIDplus",
+			      "h_average_Gain_TIDminus",
+			      "h_average_Gain_TECplus",
+			      "h_average_Gain_TECminus",
 			      
 			      "h_RMS_Gain_TIB",
 			      "h_RMS_Gain_TIB L1",
@@ -145,10 +145,10 @@ void CompareGainsTrends(TString file1, TString file2,int theIOVNumber){
 			      "h_RMS_Gain_TOB L4",
 			      "h_RMS_Gain_TOB L5",
 			      "h_RMS_Gain_TOB L6",
-			      "h_RMS_Gain_TIDp",
-			      "h_RMS_Gain_TIDm",
-			      "h_RMS_Gain_TECp",
-			      "h_RMS_Gain_TECm"
+			      "h_RMS_Gain_TIDplus",
+			      "h_RMS_Gain_TIDminus",
+			      "h_RMS_Gain_TECplus",
+			      "h_RMS_Gain_TECminus"
 			     
 			      };
   
@@ -191,7 +191,7 @@ void CompareGainsTrends(TString file1, TString file2,int theIOVNumber){
     a->SetLineWidth(2);
     b->SetLineWidth(2);
 
-    TLegend *lego = new TLegend(0.75,0.80,0.90,0.90);
+    TLegend *lego = new TLegend(0.15,0.80,0.40,0.90);
     lego->SetLineWidth(0);
     lego->SetBorderSize(0);
     lego->SetFillColor(0);

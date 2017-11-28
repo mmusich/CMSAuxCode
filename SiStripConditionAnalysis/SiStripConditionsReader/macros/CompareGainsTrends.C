@@ -135,10 +135,10 @@ void CompareGainsTrends(TString file1, TString file2,int theIOVNumber=0){
 			      "g_average_Gain_TOB L4",
 			      "g_average_Gain_TOB L5",
 			      "g_average_Gain_TOB L6",
-			      "g_average_Gain_TIDp",
-			      "g_average_Gain_TIDm",
-			      "g_average_Gain_TECp",
-			      "g_average_Gain_TECm"
+			      "g_average_Gain_TIDplus",
+			      "g_average_Gain_TIDminus",
+			      "g_average_Gain_TECplus",
+			      "g_average_Gain_TECminus"
 			      /*
 			      "g_RMS_Gain_TIB L1",
 			      "g_RMS_Gain_TIB L2",
