@@ -565,18 +565,18 @@ SiStripConditionsReader::endJob()
     g_GainsRMSByPartition_ByIOV[part]->GetYaxis()->SetTitle("RMS(G1*G2)");
     
     h_GainsByPartition_ByIOV[part] = fs->make<TH1F>(Form("h_average_Gain_%s",this->getStringFromEnum(part).c_str()),
-    						    Form("h_average_Gain_%s; IOV (run number); #LT G1*G2 #GT",this->getStringFromEnum(part).c_str()),
+    						    Form("average Gain G1*G2 %s; IOV (run number); #LT G1*G2 #GT",this->getStringFromEnum(part).c_str()),
     						    nPoints-1,&(binStops_[0]));
     
     h_GainsRMSByPartition_ByIOV[part] = fs->make<TH1F>(Form("h_RMS_Gain_%s",this->getStringFromEnum(part).c_str()),
-    						       Form("h_RMS_Gain_%s; IOV (run number); RMS(G1*G2)",this->getStringFromEnum(part).c_str()),
+    						       Form("RMS Gain G1*G2 %s; IOV (run number); RMS(G1*G2)",this->getStringFromEnum(part).c_str()),
     						       nPoints-1,&(binStops_[0]));
     
 
     // TH2 of the distribution of gains
     
     h2_GainsByPartition_ByIOV[part] = fs->make<TH2F>(Form("h2_Gain_%s",this->getStringFromEnum(part).c_str()),
-						     Form("h_2_Gain_%s; IOV (run number);G1*G2",this->getStringFromEnum(part).c_str()),
+						     Form("Gain G1*G2 %s; IOV (run number);G1*G2",this->getStringFromEnum(part).c_str()),
 						     nPoints-1,&(binStops_[0]),ybinStops_.size()-1,&(ybinStops_[0]));
 
 
