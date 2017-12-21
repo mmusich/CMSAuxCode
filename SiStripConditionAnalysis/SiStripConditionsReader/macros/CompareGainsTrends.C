@@ -191,7 +191,7 @@ void CompareGainsTrends(TString file1, TString file2,int theIOVNumber=0){
     a->SetLineStyle(1);
     b->SetLineStyle(1);
 
-    TLegend *lego = new TLegend(0.75,0.80,0.90,0.90);
+    TLegend *lego = new TLegend(0.15,0.80,0.35,0.90);
     lego->SetLineWidth(0);
     lego->SetBorderSize(0);
     lego->SetFillColor(0);

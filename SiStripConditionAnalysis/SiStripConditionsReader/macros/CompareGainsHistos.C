@@ -1,8 +1,11 @@
 #include "TFile.h"
 #include "TStyle.h"
 #include "TCanvas.h"
+#include "TProfile.h"
 #include "TGraph.h"
 #include "TH1.h"
+#include "TH2.h"
+#include "TH2F.h"
 #include "TLegend.h"
 #include "TGraphErrors.h"
 #include "TArrow.h"
@@ -13,6 +16,176 @@
 #include "TObjArray.h"
 #include "iostream"
 #include "TPaveText.h"
+#include <algorithm>
+
+/*--------------------------------------------------------------------*/
+std::pair<TH2F*,TH2F*> createRebinnedHistograms(TH2F* a,TH2F* b){
+/*--------------------------------------------------------------------*/
+  
+  std::vector<double> binsA, binsB;
+  for (int i = 1; i <= a->GetNbinsX()+1; i++) binsA.push_back(a->GetXaxis()->GetBinLowEdge(i));
+  for (int j = 1; j <= b->GetNbinsX()+1; j++) binsB.push_back(b->GetXaxis()->GetBinLowEdge(j));
+
+  std::cout<< "A" << std::endl;
+  for(const auto bin : binsA) std::cout<< bin <<","; 
+  std::cout << std::endl;
+
+  std::cout<< "B" << std::endl;
+  for(const auto bin : binsB) std::cout<< bin <<","; 
+  std::cout << std::endl;
+
+  std::vector<double> unified;
+ 
+  std::set_union(binsA.begin(), binsA.end(),
+		 binsB.begin(), binsB.end(),                  
+		 std::back_inserter(unified));
+  
+  std::cout<< "common" << std::endl;
+  for(const auto bin : unified) std::cout<< bin <<","; 
+  std::cout << std::endl;
+
+  TH2F* a_rebinned = new TH2F(((TString)a->GetName()+"_A_rebin").Data(),a->GetTitle(),unified.size()-1,&(unified[0]),a->GetNbinsY(),a->GetYaxis()->GetXbins()->GetArray());
+  TH2F* b_rebinned = new TH2F(((TString)b->GetName()+"_B_rebin").Data(),b->GetTitle(),unified.size()-1,&(unified[0]),b->GetNbinsY(),b->GetYaxis()->GetXbins()->GetArray());
+
+  // fill the rebinned A histogram
+  for (int i = 1; i <= a_rebinned->GetNbinsX(); i++){
+    for (int j = 1; j <= a_rebinned->GetNbinsY(); j++){
+      auto x = a_rebinned->GetXaxis()->GetBinCenter(i);
+      auto y = a_rebinned->GetYaxis()->GetBinCenter(j);
+      a_rebinned->SetBinContent(i,j,a->GetBinContent(a->FindBin(x,y)));
+    }
+  }
+
+  // fill the rebinned B histogram
+  for (int i = 1; i <= b_rebinned->GetNbinsX(); i++){
+    for (int j = 1; j <= b_rebinned->GetNbinsY(); j++){
+      auto x = b_rebinned->GetXaxis()->GetBinCenter(i);
+      auto y = b_rebinned->GetYaxis()->GetBinCenter(j);
+      b_rebinned->SetBinContent(i,j,b->GetBinContent(b->FindBin(x,y)));
+    }
+  }
+
+  return std::make_pair(a_rebinned,b_rebinned);
+
+}
+
+
+enum palette {HALFGRAY,GRAY,BLUES,REDS,ANTIGRAY,FIRE,ANTIFIRE,LOGREDBLUE,LOGBLUERED,DEFAULT};
+
+/*--------------------------------------------------------------------*/
+void setPaletteStyle(palette palette) 
+/*--------------------------------------------------------------------*/
+{  
+  const int NRGBs = 5;
+  const int NCont = 255;
+  
+  switch(palette){
+    
+  case HALFGRAY:
+    {
+      double stops[NRGBs] = {0.00, 0.34, 0.61, 0.84, 1.00};
+      double red[NRGBs]   = {1.00, 0.91, 0.80, 0.67, 1.00};
+      double green[NRGBs] = {1.00, 0.91, 0.80, 0.67, 1.00};
+      double blue[NRGBs]  = {1.00, 0.91, 0.80, 0.67, 1.00};
+      TColor::CreateGradientColorTable(NRGBs, stops, red, green, blue, NCont);
+    }
+    break;
+    
+  case GRAY:
+    {
+      double stops[NRGBs] = {0.00, 0.01, 0.05, 0.09, 0.1};
+      double red[NRGBs]   = {1.00, 0.84, 0.61, 0.34, 0.00};
+      double green[NRGBs] = {1.00, 0.84, 0.61, 0.34, 0.00};
+      double blue[NRGBs]  = {1.00, 0.84, 0.61, 0.34, 0.00};
+      TColor::CreateGradientColorTable(NRGBs, stops, red, green, blue, NCont);
+    }
+    break;
+      
+  case BLUES:
+    {
+      double stops[NRGBs] = {0.00, 0.34, 0.61, 0.84, 1.00};
+      double red[NRGBs]   = {1.00, 0.84, 0.61, 0.34, 0.00};
+      double green[NRGBs] = {1.00, 0.84, 0.61, 0.34, 0.00};
+      double blue[NRGBs]  = {1.00, 1.00, 1.00, 1.00, 1.00};
+      TColor::CreateGradientColorTable(NRGBs, stops, red, green, blue, NCont);
+    }
+    break;
+      
+  case REDS:
+    {
+      double stops[NRGBs] = {0.00, 0.34, 0.61, 0.84, 1.00};
+      double red[NRGBs]   = {1.00, 1.00, 1.00, 1.00, 1.00};
+      double green[NRGBs] = {1.00, 0.84, 0.61, 0.34, 0.00};
+      double blue[NRGBs]  = {1.00, 0.84, 0.61, 0.34, 0.00};
+      TColor::CreateGradientColorTable(NRGBs, stops, red, green, blue, NCont);	
+    }
+    break;
+    
+  case ANTIGRAY:
+    {
+      double stops[NRGBs] = {0.00, 0.34, 0.61, 0.84, 1.00};
+      double red[NRGBs]   = {0.00, 0.34, 0.61, 0.84, 1.00};
+      double green[NRGBs] = {0.00, 0.34, 0.61, 0.84, 1.00};
+      double blue[NRGBs]  = {0.00, 0.34, 0.61, 0.84, 1.00};
+      TColor::CreateGradientColorTable(NRGBs, stops, red, green, blue, NCont);		
+    }      
+    break;
+      
+  case FIRE:
+    {
+      double stops[NRGBs] = {0.00, 0.20, 0.80, 1.00};
+      double red[NRGBs]   = {1.00, 1.00, 1.00, 0.50};
+      double green[NRGBs] = {1.00, 1.00, 0.00, 0.00};
+      double blue[NRGBs]  = {0.20, 0.00, 0.00, 0.00};
+      TColor::CreateGradientColorTable(NRGBs, stops, red, green, blue, NCont);	
+    }
+    break;
+    
+  case ANTIFIRE:
+    {
+      double stops[NRGBs] = {0.00, 0.20, 0.80, 1.00};
+      double red[NRGBs]   = {0.50, 1.00, 1.00, 1.00};
+      double green[NRGBs] = {0.00, 0.00, 1.00, 1.00};
+      double blue[NRGBs]  = {0.00, 0.00, 0.00, 0.20};
+      TColor::CreateGradientColorTable(NRGBs, stops, red, green, blue, NCont);		
+    }
+    break;
+    
+  case LOGREDBLUE:
+    {
+      double stops[NRGBs] = {0.0001, 0.0010, 0.0100, 0.1000,  1.0000};
+      double red[NRGBs]   = {1.00,   0.75,   0.50,   0.25,    0.00};
+      double green[NRGBs] = {0.00,   0.00,   0.00,   0.00,    0.00};
+      double blue[NRGBs]  = {0.00,   0.25,   0.50,   0.75,    1.00};
+      TColor::CreateGradientColorTable(NRGBs, stops, red, green, blue, NCont);		
+    }
+    break;
+      
+  case LOGBLUERED:
+    {
+      double stops[NRGBs] = {0.0001, 0.0010, 0.0100, 0.1000,  1.0000};
+      double red[NRGBs]   = {0.00,   0.25,   0.50,   0.75,    1.00};
+      double green[NRGBs] = {0.00,   0.00,   0.00,   0.00,    0.00};
+      double blue[NRGBs]  = {1.00,   0.75,   0.50,   0.25,    0.00};
+      TColor::CreateGradientColorTable(NRGBs, stops, red, green, blue, NCont);			
+    } 
+    break;
+    
+  case DEFAULT:
+    {
+      double stops[NRGBs] = {0.00, 0.34, 0.61, 0.84, 1.00};
+      double red[NRGBs]   = {0.00, 0.00, 0.87, 1.00, 0.51};
+      double green[NRGBs] = {0.00, 0.81, 1.00, 0.20, 0.00};
+      double blue[NRGBs]  = {0.51, 1.00, 0.12, 0.00, 0.00};
+      TColor::CreateGradientColorTable(NRGBs, stops, red, green, blue, NCont);	
+    }
+    break;
+  default:
+    std::cout<<"should nevere be here" << std::endl;
+    break;
+  }  
+  gStyle->SetNumberContours(NCont);
+}
 
 /*--------------------------------------------------------------------*/
 void beautify(TH1F *g){
@@ -94,29 +267,20 @@ void setStyle(){
   gStyle->SetOptFit(1);
   gStyle->SetNdivisions(510);
 
-  const Int_t NRGBs = 5;
-  const Int_t NCont = 255;
-  
-  Double_t stops[NRGBs] = { 0.00, 0.34, 0.61, 0.84, 1.00 };
-  Double_t red[NRGBs]   = { 0.00, 0.00, 0.87, 1.00, 0.51 };
-  Double_t green[NRGBs] = { 0.00, 0.81, 1.00, 0.20, 0.00 };
-  Double_t blue[NRGBs]  = { 0.51, 1.00, 0.12, 0.00, 0.00 };
-  TColor::CreateGradientColorTable(NRGBs, stops, red, green, blue, NCont);
-  gStyle->SetNumberContours(NCont);
-
 }
 
 void CompareGainsTrends(TString file1, TString file2,int theIOVNumber){
   
   setStyle();
-
+  setPaletteStyle(GRAY);
+  
   TFile *f1 = TFile::Open(file1);
   TFile *f2 = TFile::Open(file2);
 
   TString label1 = file1.ReplaceAll("GainTrend_","").ReplaceAll(".root","");
   TString label2 = file2.ReplaceAll("GainTrend_","").ReplaceAll(".root","");
 
-  TString listOfGraphs[32] = {"h_average_Gain_TIB",
+  TString listOfGraphs[48] = {"h_average_Gain_TIB",
 			      "h_average_Gain_TIB L1",
 			      "h_average_Gain_TIB L2",
 			      "h_average_Gain_TIB L3",
@@ -148,13 +312,30 @@ void CompareGainsTrends(TString file1, TString file2,int theIOVNumber){
 			      "h_RMS_Gain_TIDplus",
 			      "h_RMS_Gain_TIDminus",
 			      "h_RMS_Gain_TECplus",
-			      "h_RMS_Gain_TECminus"
-			     
+			      "h_RMS_Gain_TECminus",
+
+			      "h2_Gain_TIB",
+			      "h2_Gain_TIB L1",
+			      "h2_Gain_TIB L2",
+			      "h2_Gain_TIB L3",
+			      "h2_Gain_TIB L4",
+			      "h2_Gain_TOB L1",
+			      "h2_Gain_TOB",
+			      "h2_Gain_TOB L2",
+			      "h2_Gain_TOB L3",
+			      "h2_Gain_TOB L4",
+			      "h2_Gain_TOB L5",
+			      "h2_Gain_TOB L6",
+			      "h2_Gain_TIDplus",
+			      "h2_Gain_TIDminus",
+			      "h2_Gain_TECplus",
+			      "h2_Gain_TECminus",
+
 			      };
   
-  TCanvas *c1[32]; 
+  TCanvas *c1[48]; 
 
-  for(int iGraph=0;iGraph<32;iGraph++){
+  for(int iGraph=0;iGraph<48;iGraph++){
     
     std::cout<<listOfGraphs[iGraph]<<std::endl;
     c1[iGraph] = new TCanvas(listOfGraphs[iGraph],listOfGraphs[iGraph],1200,800);
@@ -178,18 +359,6 @@ void CompareGainsTrends(TString file1, TString file2,int theIOVNumber){
 
     a->SetMarkerColor(kRed);
     b->SetMarkerColor(kBlue);
-
-    a->SetMarkerStyle(kFullCircle);
-    b->SetMarkerStyle(kOpenSquare);
-
-    a->SetMarkerSize(2);
-    b->SetMarkerSize(2);
-
-    a->SetLineStyle(1);
-    b->SetLineStyle(7);
-
-    a->SetLineWidth(2);
-    b->SetLineWidth(2);
 
     TLegend *lego = new TLegend(0.15,0.80,0.40,0.90);
     lego->SetLineWidth(0);
@@ -230,11 +399,81 @@ void CompareGainsTrends(TString file1, TString file2,int theIOVNumber){
     beautify(a);
     beautify(b);
 
-    a->Draw("E1");
-    b->Draw("E1same");
+    if(!((TString)a->GetName()).Contains("h2")){
 
-    a->Draw("Psame");
-    b->Draw("Psame");
+      a->SetMarkerStyle(kFullCircle);
+      b->SetMarkerStyle(kOpenSquare);
+
+      a->SetMarkerSize(2);
+      b->SetMarkerSize(2);
+
+      a->SetLineStyle(1);
+      b->SetLineStyle(7);
+
+      a->SetLineWidth(2);
+      b->SetLineWidth(2);
+
+      a->Draw("E1");
+      b->Draw("E1same");
+
+      a->Draw("Psame");
+      b->Draw("Psame");
+
+    } else {
+
+     
+      /*
+	a->SetFillColorAlpha(kRed,  0.30);
+	b->SetFillColorAlpha(kBlue, 0.30);
+	//a->GetYaxis()->SetRangeUser(0.6,1.4);
+	//b->GetYaxis()->SetRangeUser(0.6,1.4);
+	a->Draw("box");
+	b->Draw("boxsame");
+      */	
+
+
+      auto pair = createRebinnedHistograms((TH2F*)a,(TH2F*)b);
+
+      pair.first->SetFillColorAlpha(kRed,0.30);
+      pair.second->SetFillColorAlpha(kBlue,0.30);
+
+      pair.first->SetMarkerColor(kRed);
+      pair.second->SetMarkerColor(kBlue);
+
+      pair.first->SetMarkerStyle(kFullCircle);
+      pair.second->SetMarkerColor(kOpenSquare);
+
+      pair.first->SetLineColor(kRed);
+      pair.second->SetLineColor(kBlue);
+
+      pair.first->GetYaxis()->SetRangeUser(0.5,1.5);
+      pair.second->GetYaxis()->SetRangeUser(0.5,1.5);
+
+      pair.first->Draw("candle3");
+      pair.second->Draw("candle3same");
+      
+      auto h_a_pfx_tmp = (TProfile*)(((TH2F*)a)->ProfileX("_apfx",1,-1,"o"));
+      h_a_pfx_tmp->SetName(TString(a->GetName())+"_pfx");
+      h_a_pfx_tmp->SetStats(kFALSE);
+      h_a_pfx_tmp->SetMarkerColor(kRed);
+      h_a_pfx_tmp->SetLineColor(kRed);
+      h_a_pfx_tmp->SetLineWidth(2); 
+      h_a_pfx_tmp->SetMarkerSize(2); 
+      h_a_pfx_tmp->SetMarkerStyle(kFullCircle);
+
+      auto h_b_pfx_tmp = (TProfile*)(((TH2F*)b)->ProfileX("_bpfx",1,-1,"o"));
+      h_b_pfx_tmp->SetName(TString(b->GetName())+"_pfx");
+      h_b_pfx_tmp->SetStats(kFALSE);
+      h_b_pfx_tmp->SetMarkerColor(kBlue);
+      h_b_pfx_tmp->SetLineColor(kBlue);
+      h_b_pfx_tmp->SetMarkerSize(2);
+      h_b_pfx_tmp->SetLineWidth(2);  
+      h_b_pfx_tmp->SetMarkerStyle(kOpenSquare);
+
+      //h_a_pfx_tmp->Draw("PLsame");
+      //h_b_pfx_tmp->Draw("PLsame");
+      
+    }
 
     lego->Draw("same");
 
@@ -253,7 +492,7 @@ void CompareGainsTrends(TString file1, TString file2,int theIOVNumber){
     c1[iGraph]->Update();
 
     for(Int_t IOV_ofA=0;IOV_ofA<nIOV_a;IOV_ofA++){
-      ax[IOV_ofA] = a->GetBinLowEdge(IOV_ofA+1);
+      ax[IOV_ofA] = a->GetXaxis()->GetBinLowEdge(IOV_ofA+1);
       ay[IOV_ofA] = a->GetBinContent(IOV_ofA+1);
       a_lines[IOV_ofA] = new TArrow(ax[IOV_ofA],(c1[iGraph]->GetUymin()),ax[IOV_ofA],(c1[iGraph]->GetUymin()+0.2*(c1[iGraph]->GetUymax()-c1[iGraph]->GetUymin()) ),0.5,"|>");
       a_lines[IOV_ofA]->SetLineColor(kRed);
@@ -263,7 +502,7 @@ void CompareGainsTrends(TString file1, TString file2,int theIOVNumber){
     }
 
     for(Int_t IOV_ofB=0;IOV_ofB<nIOV_b;IOV_ofB++){
-      bx[IOV_ofB] = b->GetBinLowEdge(IOV_ofB+1);
+      bx[IOV_ofB] = b->GetXaxis()->GetBinLowEdge(IOV_ofB+1);
       by[IOV_ofB] = b->GetBinContent(IOV_ofB+1);
       b_lines[IOV_ofB] = new TArrow(bx[IOV_ofB],c1[iGraph]->GetUymin(),bx[IOV_ofB],(c1[iGraph]->GetUymin()+0.1*(c1[iGraph]->GetUymax()-c1[iGraph]->GetUymin())),0.5,"|>");
       b_lines[IOV_ofB]->SetLineColor(kBlue);

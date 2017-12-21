@@ -134,7 +134,8 @@ class SiStripConditionsReader : public edm::one::EDAnalyzer<edm::one::SharedReso
       edm::Service<TFileService> fs;
       std::auto_ptr<std::ofstream> output_;
 
-      static const int nIOVs_ = 100; 
+      static const int nIOVs_ = 100;
+      static const int nGainBins_ = 200;
       static const int nParts_ = partitions::NUM_OF_TYPES;
 
       int IOVcount_;
@@ -152,6 +153,8 @@ class SiStripConditionsReader : public edm::one::EDAnalyzer<edm::one::SharedReso
       std::map<partitions::layers , TH1F* > h_GainsByPartition_ByIOV;
       std::map<partitions::layers , TH1F* > h_GainsRMSByPartition_ByIOV;
   
+      std::map<partitions::layers , TH2F* > h2_GainsByPartition_ByIOV;
+
       int lastRun_;
       bool applyQuality_;
       std::string fileName_;
@@ -461,7 +464,7 @@ SiStripConditionsReader::beginJob()
     dirs.push_back(fs->mkdir(this->getStringFromEnum(part)));
     
     for(int j=0;j<nIOVs_; ++j){
-      h_gainByPart_[i][j] = dirs[i].make<TH1D>(Form("G_%s_IOV%i",this->getStringFromEnum(part).c_str(),j),Form("%s Gain for IOV %i; Gain; n. APV",this->getStringFromEnum(part).c_str(),j),100,0.,2.);
+      h_gainByPart_[i][j] = dirs[i].make<TH1D>(Form("G_%s_IOV%i",this->getStringFromEnum(part).c_str(),j),Form("%s Gain for IOV %i; Gain; n. APV",this->getStringFromEnum(part).c_str(),j),nGainBins_,0.,2.);
     } 
   }
 }
@@ -520,6 +523,11 @@ SiStripConditionsReader::endJob()
   }
 
   std::vector<float> binStops_(theBoundaries_);
+  std::vector<float> ybinStops_(nGainBins_);
+  for(unsigned int i=0;i<=nGainBins_;i++){
+    ybinStops_.push_back(i*(2./nGainBins_));
+  }
+
   binStops_.push_back(lastRun_);
   const unsigned int nPoints = binStops_.size();
 
@@ -564,6 +572,14 @@ SiStripConditionsReader::endJob()
     						       Form("h_RMS_Gain_%s; IOV (run number); RMS(G1*G2)",this->getStringFromEnum(part).c_str()),
     						       nPoints-1,&(binStops_[0]));
     
+
+    // TH2 of the distribution of gains
+    
+    h2_GainsByPartition_ByIOV[part] = fs->make<TH2F>(Form("h2_Gain_%s",this->getStringFromEnum(part).c_str()),
+						     Form("h_2_Gain_%s; IOV (run number);G1*G2",this->getStringFromEnum(part).c_str()),
+						     nPoints-1,&(binStops_[0]),ybinStops_.size()-1,&(ybinStops_[0]));
+
+
     for(unsigned int j=0;j<nPoints-1;j++){
       
       //std::cout<<"index: "<<j<<" binStops_["<<j<<"]="<<binStops_[j] 
@@ -574,6 +590,18 @@ SiStripConditionsReader::endJob()
 
       h_GainsByPartition_ByIOV[part]->SetBinError(j+1,0.);
       h_GainsRMSByPartition_ByIOV[part]->SetBinError(j+1,0.);
+
+      auto theMap = gainTrendByPartition_[ theBoundaries_[j] ];
+
+      // loop on the bins of the gain TH1
+      for(int k=0;k<theMap[part]->GetNbinsX();k++){
+	//h2_GainsByPartition_ByIOV[part]->SetBinContent(j+1,k+1,theMap[part]->GetBinContent(k+1));
+
+	h2_GainsByPartition_ByIOV[part]->Fill(theBoundaries_[j],theMap[part]->GetBinCenter(k+1),theMap[part]->GetBinContent(k+1));
+
+	//std::cout << "x:" << j+1 << " y:" << k+1 << " content:" << theMap[part]->GetBinContent(k+1) << std::endl;
+
+      }
 
       //h_GainsByPartition_ByIOV[part]->GetXaxis()->SetBinLabel(j+1,Form("%f",binStops_[j]));
       //h_GainsRMSByPartition_ByIOV[part]->GetXaxis()->SetBinLabel(j+1,Form("%f",binStops_[j]));
