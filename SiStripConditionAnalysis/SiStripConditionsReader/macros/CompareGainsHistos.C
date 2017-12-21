@@ -44,8 +44,8 @@ std::pair<TH2F*,TH2F*> createRebinnedHistograms(TH2F* a,TH2F* b){
   for(const auto bin : unified) std::cout<< bin <<","; 
   std::cout << std::endl;
 
-  TH2F* a_rebinned = new TH2F(((TString)a->GetName()+"_A_rebin").Data(),a->GetTitle(),unified.size()-1,&(unified[0]),a->GetNbinsY(),a->GetYaxis()->GetXbins()->GetArray());
-  TH2F* b_rebinned = new TH2F(((TString)b->GetName()+"_B_rebin").Data(),b->GetTitle(),unified.size()-1,&(unified[0]),b->GetNbinsY(),b->GetYaxis()->GetXbins()->GetArray());
+  TH2F* a_rebinned = new TH2F(((TString)a->GetName()+"_A_rebin").Data(),((TString)a->GetTitle()+";"+(TString)a->GetXaxis()->GetTitle()+";"+(TString)a->GetYaxis()->GetTitle()).Data(),unified.size()-1,&(unified[0]),a->GetNbinsY(),a->GetYaxis()->GetXbins()->GetArray());
+  TH2F* b_rebinned = new TH2F(((TString)b->GetName()+"_B_rebin").Data(),((TString)b->GetTitle()+";"+(TString)b->GetXaxis()->GetTitle()+";"+(TString)b->GetXaxis()->GetTitle()).Data(),unified.size()-1,&(unified[0]),b->GetNbinsY(),b->GetYaxis()->GetXbins()->GetArray());
 
   // fill the rebinned A histogram
   for (int i = 1; i <= a_rebinned->GetNbinsX(); i++){
@@ -188,7 +188,7 @@ void setPaletteStyle(palette palette)
 }
 
 /*--------------------------------------------------------------------*/
-void beautify(TH1F *g){
+void beautify(TH1 *g){
 /*--------------------------------------------------------------------*/
   g->GetXaxis()->SetLabelFont(42);
   g->GetYaxis()->SetLabelFont(42);
@@ -347,11 +347,7 @@ void CompareGainsTrends(TString file1, TString file2,int theIOVNumber){
     a->SetLineColor(kRed);
     b->SetLineColor(kBlue);
     
-    /*
-      a->SetFillColorAlpha(kRed-1,  0.35);
-      b->SetFillColorAlpha(kBlue-1, 0.35);
-    */
-
+    
     /*
       a->SetFillColor(kRed);
       b->SetFillColor(kBlue);
@@ -364,8 +360,21 @@ void CompareGainsTrends(TString file1, TString file2,int theIOVNumber){
     lego->SetLineWidth(0);
     lego->SetBorderSize(0);
     lego->SetFillColor(0);
-    lego->AddEntry(a,label1,"PL");
-    lego->AddEntry(b,label2,"PL");
+    
+    if(!((TString)a->GetName()).Contains("h2")){
+      lego->AddEntry(a,label1,"PL");
+      lego->AddEntry(b,label2,"PL");
+    } else {
+
+      a->SetFillColorAlpha(kRed,  0.30);
+      b->SetFillColorAlpha(kBlue, 0.30);
+
+      a->SetFillStyle(3005);
+      b->SetFillStyle(3004);
+
+      lego->AddEntry(a,label1,"F");
+      lego->AddEntry(b,label2,"F");
+    }
 
     TString title = a->GetName();
 
@@ -434,8 +443,17 @@ void CompareGainsTrends(TString file1, TString file2,int theIOVNumber){
 
       auto pair = createRebinnedHistograms((TH2F*)a,(TH2F*)b);
 
+      beautify(pair.first);
+      beautify(pair.second);
+
+      pair.first->GetXaxis()->SetNdivisions(305);
+      pair.second->GetXaxis()->SetNdivisions(305);
+
       pair.first->SetFillColorAlpha(kRed,0.30);
       pair.second->SetFillColorAlpha(kBlue,0.30);
+
+      pair.first->SetFillStyle(3005);
+      pair.second->SetFillStyle(3004);
 
       pair.first->SetMarkerColor(kRed);
       pair.second->SetMarkerColor(kBlue);
@@ -446,8 +464,8 @@ void CompareGainsTrends(TString file1, TString file2,int theIOVNumber){
       pair.first->SetLineColor(kRed);
       pair.second->SetLineColor(kBlue);
 
-      pair.first->GetYaxis()->SetRangeUser(0.5,1.5);
-      pair.second->GetYaxis()->SetRangeUser(0.5,1.5);
+      pair.first->GetYaxis()->SetRangeUser(0.3,1.7);
+      pair.second->GetYaxis()->SetRangeUser(0.3,1.7);
 
       pair.first->Draw("candle3");
       pair.second->Draw("candle3same");
