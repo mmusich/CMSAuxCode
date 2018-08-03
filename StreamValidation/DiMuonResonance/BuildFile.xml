@@ -21,9 +21,9 @@
 <use   name="MagneticField/Engine"/>
 <use   name="MagneticField/Records"/>
 <use   name="Utilities/General"/>
+<use   name="CommonTools/TrackerMap"/>
 <use   name="clhep"/>
 <use   name="SimDataFormats/Vertex"/>
-<use   name="rootcintex"/>
 <use   name="CommonTools/UtilAlgos"/>
 <use   name="CondCore/DBOutputService"/>
 <use   name="CondFormats/HLTObjects"/>

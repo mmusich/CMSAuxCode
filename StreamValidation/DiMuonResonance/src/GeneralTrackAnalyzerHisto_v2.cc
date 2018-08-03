@@ -91,7 +91,7 @@ class GeneralTrackAnalyzerHisto_v2 : public edm::EDAnalyzer {
     TkTag_     = pset.getParameter<string>("TkTag");
     theTrackCollectionToken = consumes<reco::TrackCollection>(TkTag_);
      
-    InputTag tag("TriggerResults","","HLT"); 
+    InputTag tag("TriggerResults","","RECO"); 
     hltresultsToken = consumes<edm::TriggerResults>(tag);
 
     InputTag beamSpotTag("offlineBeamSpot");

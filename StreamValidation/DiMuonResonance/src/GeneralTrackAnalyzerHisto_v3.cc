@@ -16,6 +16,7 @@
 #include "CondFormats/DataRecord/interface/AlCaRecoTriggerBitsRcd.h"
 #include "CondFormats/DataRecord/interface/SiStripCondDataRecords.h"
 #include "CondFormats/HLTObjects/interface/AlCaRecoTriggerBits.h"
+#include "CondFormats/SiStripObjects/interface/SiStripLatency.h"
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
 #include "DataFormats/Common/interface/TriggerResults.h"
 #include "DataFormats/DetId/interface/DetId.h"
@@ -25,6 +26,7 @@
 #include "DataFormats/TrackReco/interface/HitPattern.h"
 #include "DataFormats/TrackReco/interface/Track.h"
 #include "DataFormats/TrackReco/interface/TrackFwd.h"
+#include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 #include "DataFormats/TrackerRecHit2D/interface/ProjectedSiStripRecHit2D.h"
 #include "DataFormats/TrackerRecHit2D/interface/SiPixelRecHit.h"
 #include "DataFormats/TrackerRecHit2D/interface/SiStripMatchedRecHit2D.h"
@@ -55,8 +57,6 @@
 #include "IOMC/RandomEngine/src/RandomEngineStateProducer.h"
 #include "MagneticField/Engine/interface/MagneticField.h"
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
-#include "TrackingTools/Records/interface/TransientTrackRecord.h"
-#include "TrackingTools/TransientTrack/interface/TransientTrackBuilder.h"
 #include "TBranch.h"
 #include "TFile.h"
 #include "TFile.h"
@@ -66,7 +66,6 @@
 #include "TLorentzVector.h"
 #include "TProfile.h"
 #include "TTree.h"
-#include "TrackingTools/Records/interface/TransientTrackRecord.h"
 #include "TrackingTools/PatternTools/interface/Trajectory.h"
 #include "TrackingTools/TrackFitters/interface/TrajectoryStateCombiner.h"
 #include <DataFormats/GeometrySurface/interface/LocalError.h>
@@ -77,6 +76,7 @@
 #include <string>
 #include <vector>
 
+#include "CommonTools/TrackerMap/interface/TrackerMap.h"
 
 class MagneticField;
 
@@ -88,13 +88,13 @@ using namespace edm;
 const int kBPIX = PixelSubdetector::PixelBarrel;
 const int kFPIX = PixelSubdetector::PixelEndcap;
 
-class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
+class GeneralTrackAnalyzerHisto_v3 : public edm::EDAnalyzer {
  public:
-  GeneralTrackAnalyzerHisto(const edm::ParameterSet& pset) {
+  GeneralTrackAnalyzerHisto_v3(const edm::ParameterSet& pset) {
     TkTag_     = pset.getParameter<string>("TkTag");
     theTrackCollectionToken = consumes<reco::TrackCollection>(TkTag_);
      
-    InputTag tag("TriggerResults","","HLT"); 
+    InputTag tag("TriggerResults","","RECO"); 
     hltresultsToken = consumes<edm::TriggerResults>(tag);
 
     InputTag beamSpotTag("offlineBeamSpot");
@@ -104,9 +104,19 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
     vertexToken   = consumes<reco::VertexCollection>(vertexTag);
 
     isCosmics_ = pset.getParameter<bool>("isCosmics");
+
+    pmap = new TrackerMap("Pixel");
+    pmap->onlyPixel(true);
+    pmap->setTitle("Pixel Hit entries");
+    pmap->setPalette(1);
+
+    tmap = new TrackerMap("Strip");
+    tmap->setTitle("Strip Hit entries");
+    tmap->setPalette(1);
+
   }
 
-  ~GeneralTrackAnalyzerHisto(){}
+  ~GeneralTrackAnalyzerHisto_v3(){}
 
   template <class OBJECT_TYPE>
   int GetIndex(const std::vector<OBJECT_TYPE*> &vec, const TString &name)
@@ -122,28 +132,37 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
 
   edm::Service<TFileService> fs;
   
-  TTree* AnalysisTree;
-  //   BRANCH branch;
+  TrackerMap *tmap;
+  TrackerMap *pmap;
 
-  TH1D *hchi2  ;
-  TH1D *hNtrk  ;
+  TH1D *hchi2ndof;
+  TH1D *hNtrk;
   TH1D *hNtrkZoom;
   TH1I *htrkQuality;
   TH1I *htrkAlgo;
   TH1D *hNhighPurity;
-  TH1D *hP     ;
-  TH1D *hPPlus ;
+  TH1D *hP;
+  TH1D *hPPlus;
   TH1D *hPMinus;
-  TH1D *hPt    ;
-  TH1D *hPtZoom;
-  TH1D *hMinPt ;
+  TH1D *hPt;
+  TH1D *hMinPt;
   TH1D *hPtPlus;
   TH1D *hPtMinus;
   TH1D *hHit;
   TH1D *hHit2D; 
 
+  TH1D *hHitCountVsXBPix;
+  TH1D *hHitCountVsXFPix;
+  TH1D *hHitCountVsYBPix;
+  TH1D *hHitCountVsYFPix;
   TH1D *hHitCountVsZBPix;
   TH1D *hHitCountVsZFPix;
+  
+  TH1D *hHitCountVsThetaBPix;
+  TH1D *hHitCountVsPhiBPix; 
+  
+  TH1D *hHitCountVsThetaFPix;
+  TH1D *hHitCountVsPhiFPix; 
 
   TH1D *hHitPlus;
   TH1D *hHitMinus;
@@ -153,7 +172,7 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
   TH1D *hHithp;  
   TH1D *hEtahp; 
   TH1D *hPhihp;  
-  TH1D *hchi2hp; 
+  TH1D *hchi2ndofhp; 
   TH1D *hchi2Probhp;
 
   TH1D *hCharge;
@@ -163,11 +182,11 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
   TH1D *hEtaPlus; 
   TH1D *hEtaMinus;
   TH1D *hPhi;
-  TH1D *hPhiDT;
-  TH1D *hPhiRPCPlus;
-  TH1D *hPhiRPCMinus;
-  TH1D *hPhiCSCPlus;
-  TH1D *hPhiCSCMinus;
+  TH1D *hPhiBarrel;
+  TH1D *hPhiOverlapPlus;
+  TH1D *hPhiOverlapMinus;
+  TH1D *hPhiEndcapPlus;
+  TH1D *hPhiEndcapMinus;
   TH1D *hPhiPlus;
   TH1D *hPhiMinus;
 
@@ -217,25 +236,37 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
   std::vector<TH1*> vTrackHistos_;
   std::vector<TH1*> vTrackProfiles_;
   std::vector<TH1*> vTrack2DHistos_;
-  
-  std::map<std::string, TH1*> hDA;
+
+  TH1D *tksByTrigger_;
+  TH1D *evtsByTrigger_;
+
+  TH1D *modeByRun_;
+  TH1D *fieldByRun_;
 
   std::string trigNames;
   int trigCount;
   int ievt;
+  int itrks;
   int mol;
+  int mode;
   float InvMass;
   double invMass;
   bool firstEvent_;
+  bool isPhase1_;
   const TrackerGeometry* trackerGeometry_;
 
   std::string TkTag_;
   bool isCosmics_;
+
   edm::EDGetTokenT<reco::TrackCollection>  theTrackCollectionToken;
   edm::EDGetTokenT<edm::TriggerResults> hltresultsToken;
   edm::EDGetTokenT<reco::BeamSpot> beamspotToken;
   edm::EDGetTokenT<reco::VertexCollection> vertexToken;
 
+  std::map<std::string,std::pair<int,int> > triggerMap_;
+  std::map<int,std::pair<int,float> > conditionsMap_; 
+  std::map<int,std::pair<int,int> > runInfoMap_;
+  
   virtual void analyze(const edm::Event& event, const edm::EventSetup& setup){
 
     //typedef cond::Time_t Time_t;
@@ -258,46 +289,69 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
     
     edm::Handle<reco::TrackCollection> trackCollection;
     event.getByToken(theTrackCollectionToken, trackCollection);
-    
+
     // magnetic field setup
     edm::ESHandle<MagneticField> magneticField_;
     setup.get<IdealMagneticFieldRecord>().get(magneticField_);
-
-    //=======================================================
-    // Retrieve the Transient Track Builder information
-    //=======================================================
-    
-    edm::ESHandle<TransientTrackBuilder> theB_;
-    setup.get<TransientTrackRecord>().get("TransientTrackBuilder",theB_);
-    double fBfield_=((*theB_).field()->inTesla(GlobalPoint(0.,0.,0.))).z();
+    float B_=magneticField_.product()->inTesla(GlobalPoint(0,0,0)).mag();
 
     // topology setup 
     //edm::ESHandle<TrackerTopology> tTopoHandle;
     //setup.get<IdealGeometryRecord>().get(tTopoHandle);
     //const TrackerTopology* const tTopo = tTopoHandle.product();
     
+    edm::ESHandle<SiStripLatency> apvlat;
+    setup.get<SiStripLatencyRcd>().get(apvlat);
+    if(apvlat->singleReadOutMode()==1) mode =  1; // peak mode
+    if(apvlat->singleReadOutMode()==0) mode = -1; // deco mode
+    
+    conditionsMap_[event.run()].first  = mode;
+    conditionsMap_[event.run()].second = B_;
+
     // geometry setup
     edm::ESHandle<TrackerGeometry> geometry;
     setup.get<TrackerDigiGeometryRecord>().get(geometry);
     const TrackerGeometry* theGeometry = &(*geometry);
+
+    // switch on the phase1 
+    if( (theGeometry->isThere(GeomDetEnumerators::P1PXB)) || (theGeometry->isThere(GeomDetEnumerators::P1PXEC)) ) {
+      isPhase1_ = true;
+    } else {
+      isPhase1_ = false;
+    }
 
     GlobalPoint zeroPoint(0,0,0);
     //std::cout << "event#" << ievt << " Event ID = "<< event.id() 
     /// << " magnetic field: " << magneticField_->inTesla(zeroPoint) << std::endl ;
     
     const reco::TrackCollection tC = *(trackCollection.product());
+    itrks+=tC.size();
+
+    runInfoMap_[event.run()].first +=1;
+    runInfoMap_[event.run()].second +=tC.size();
 
     //std::cout << "Reconstructed "<< tC.size() << " tracks" << std::endl ;
     TLorentzVector mother(0.,0.,0.,0.);
     
     //int iCounter=0;
-
     edm::Handle<edm::TriggerResults> hltresults;
     event.getByToken(hltresultsToken,hltresults);
 
     edm::TriggerNames triggerNames_ = event.triggerNames(*hltresults);
-    //int ntrigs=hltresults->size();
+    int ntrigs=hltresults->size();
     vector<string> triggernames = triggerNames_.triggerNames();
+
+    for (int itrig = 0; itrig != ntrigs; ++itrig){
+      string trigName=triggerNames_.triggerName(itrig);
+      bool accept = hltresults->accept(itrig);
+      if (accept== 1){
+	// cout << trigName << " " << accept << " ,track size: " << tC.size() << endl;
+	triggerMap_[trigName].first+=1;
+	triggerMap_[trigName].second+=tC.size();
+	// triggerInfo.push_back(pair <string, int> (trigName, accept));
+      }
+    }
+    
     hrun->Fill(event.run());
     hlumi->Fill(event.luminosityBlock());
 
@@ -312,15 +366,17 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
 	TrackingRecHit* hit = (*iHit)->clone();
 	const DetId& detId = hit->geographicalId();
 	const GeomDet* geomDet( theGeometry->idToDet(detId) );
-
+	
 	const SiPixelRecHit *pixhit = dynamic_cast<const SiPixelRecHit*>(hit);
 	
 	if(pixhit){
 	  if(pixhit->isValid() ) {
 	    
 	    unsigned int subid = detId.subdetId();
-	    //int detid_db = detId.rawId();
+	    int detid_db = detId.rawId();
 	    
+	    if(!isPhase1_) pmap->fill(detid_db,1);
+
 	    LocalPoint lp = (*iHit)->localPosition();
 	    //LocalError le = (*iHit)->localPositionError();
 
@@ -330,14 +386,28 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
 	       // 1 = PXB, 2 = PXF
 	      if ( subid == PixelSubdetector::PixelBarrel ) {
 
+		hHitCountVsThetaBPix->Fill(GP.theta());
+		hHitCountVsPhiBPix->Fill(GP.phi()); 
+
 		hHitCountVsZBPix->Fill(GP.z());
-	
+		hHitCountVsXBPix->Fill(GP.x());
+		hHitCountVsYBPix->Fill(GP.y());
+
 	      } else if ( subid == PixelSubdetector::PixelEndcap ) {
 		
+		hHitCountVsThetaFPix->Fill(GP.theta());
+		hHitCountVsPhiFPix->Fill(GP.phi()); 
+		
 		hHitCountVsZFPix->Fill(GP.z());
+		hHitCountVsXFPix->Fill(GP.x());
+		hHitCountVsYFPix->Fill(GP.y());
 
 	      }  
 	    }
+	  }
+	} else {
+	  if(hit->isValid()){
+	    tmap->fill(detId.rawId(),1);      
 	  }
 	}
       }
@@ -382,19 +452,18 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
       hQoverP->Fill(track->qoverp());
       hQoverPZoom->Fill(track->qoverp());
       hPt->Fill(track->pt());
-      hPtZoom->Fill(std::max(track->pt(),9.99));
       hP->Fill(track->p());
-      hchi2->Fill(track->normalizedChi2());
+      hchi2ndof->Fill(track->normalizedChi2());
       hEta->Fill(track->eta());
       hPhi->Fill(track->phi());
 
       //std::cout << "nHit2D: "<<nHit2D<<std::endl;
       
-      if (fabs(track->eta() ) < 0.8 )                hPhiDT->Fill(track->phi());
-      if (track->eta()>0.8 && track->eta()  < 1.4 )  hPhiRPCPlus->Fill(track->phi());
-      if (track->eta()<-0.8 && track->eta() >- 1.4 ) hPhiRPCMinus->Fill(track->phi());
-      if (track->eta()>1.4)                          hPhiCSCPlus->Fill(track->phi());
-      if (track->eta()<-1.4)                         hPhiCSCMinus->Fill(track->phi());
+      if (fabs(track->eta() ) < 0.8 )                hPhiBarrel->Fill(track->phi());
+      if (track->eta()>0.8 && track->eta()  < 1.4 )  hPhiOverlapPlus->Fill(track->phi());
+      if (track->eta()<-0.8 && track->eta() >- 1.4 ) hPhiOverlapMinus->Fill(track->phi());
+      if (track->eta()>1.4)                          hPhiEndcapPlus->Fill(track->phi());
+      if (track->eta()<-1.4)                         hPhiEndcapMinus->Fill(track->phi());
      
       hd0->Fill(track->d0());
       hdz->Fill(track->dz());
@@ -431,7 +500,7 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
 	myquality=1;
 	htrkQuality->Fill(myquality);
       }
-      if(track->quality(reco::TrackBase::highPurity)){
+      if(track->quality(reco::TrackBase::highPurity) && (!isCosmics_)){
 	myquality=2;
 	htrkQuality->Fill(myquality);
 	hPhp->Fill(track->p());
@@ -439,7 +508,7 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
 	hHithp->Fill(track->numberOfValidHits()); 
 	hEtahp->Fill(track->eta());
 	hPhihp->Fill(track->phi());
-	hchi2hp->Fill(track->normalizedChi2());
+	hchi2ndofhp->Fill(track->normalizedChi2());
 	hchi2Probhp->Fill(TMath::Prob(track->chi2(),track->ndof()));
 	nHighPurityTracks++;
       }
@@ -493,41 +562,41 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
       	vTrackHistos_[ptResolutionindex]->Fill(track->ptError()/track->pt());
       }
       // Fill track profiles
-      static const int d0phiindex = this->GetIndex(vTrackProfiles_,"prof_d0_vs_phi");
+      static const int d0phiindex = this->GetIndex(vTrackProfiles_,"p_d0_vs_phi");
       vTrackProfiles_[d0phiindex]->Fill(track->phi(),track->d0());
-      static const int dzphiindex = this->GetIndex(vTrackProfiles_,"prof_dz_vs_phi");
+      static const int dzphiindex = this->GetIndex(vTrackProfiles_,"p_dz_vs_phi");
       vTrackProfiles_[dzphiindex]->Fill(track->phi(),track->dz());
-      static const int d0etaindex = this->GetIndex(vTrackProfiles_,"prof_d0_vs_eta");
+      static const int d0etaindex = this->GetIndex(vTrackProfiles_,"p_d0_vs_eta");
       vTrackProfiles_[d0etaindex]->Fill(track->eta(),track->d0());
-      static const int dzetaindex = this->GetIndex(vTrackProfiles_,"prof_dz_vs_eta");
+      static const int dzetaindex = this->GetIndex(vTrackProfiles_,"p_dz_vs_eta");
       vTrackProfiles_[dzetaindex]->Fill(track->eta(),track->dz());
-      static const int chiProbphiindex = this->GetIndex(vTrackProfiles_,"prof_chi2Prob_vs_phi");
+      static const int chiProbphiindex = this->GetIndex(vTrackProfiles_,"p_chi2Prob_vs_phi");
       vTrackProfiles_[chiProbphiindex]->Fill(track->phi(),chi2Prob);
-      static const int chiProbabsd0index = this->GetIndex(vTrackProfiles_,"prof_chi2Prob_vs_d0");
+      static const int chiProbabsd0index = this->GetIndex(vTrackProfiles_,"p_chi2Prob_vs_d0");
       vTrackProfiles_[chiProbabsd0index]->Fill(fabs(track->d0()),chi2Prob);
-      static const int chiProbabsdzindex = this->GetIndex(vTrackProfiles_,"prof_chi2Prob_vs_dz");
+      static const int chiProbabsdzindex = this->GetIndex(vTrackProfiles_,"p_chi2Prob_vs_dz");
       vTrackProfiles_[chiProbabsdzindex]->Fill(track->dz(),chi2Prob);
-      static const int chiphiindex = this->GetIndex(vTrackProfiles_,"prof_chi2_vs_phi");
+      static const int chiphiindex = this->GetIndex(vTrackProfiles_,"p_chi2_vs_phi");
       vTrackProfiles_[chiphiindex]->Fill(track->phi(),track->chi2());
-      static const int normchiphiindex = this->GetIndex(vTrackProfiles_,"prof_normchi2_vs_phi");
+      static const int normchiphiindex = this->GetIndex(vTrackProfiles_,"p_normchi2_vs_phi");
       vTrackProfiles_[normchiphiindex]->Fill(track->phi(),normchi2);
-      static const int chietaindex = this->GetIndex(vTrackProfiles_,"prof_chi2_vs_eta");
+      static const int chietaindex = this->GetIndex(vTrackProfiles_,"p_chi2_vs_eta");
       vTrackProfiles_[chietaindex]->Fill(track->eta(),track->chi2());
-      static const int normchiptindex = this->GetIndex(vTrackProfiles_,"prof_normchi2_vs_pt");
+      static const int normchiptindex = this->GetIndex(vTrackProfiles_,"p_normchi2_vs_pt");
       vTrackProfiles_[normchiptindex]->Fill(track->pt(),normchi2);
-      static const int normchipindex = this->GetIndex(vTrackProfiles_,"prof_normchi2_vs_p");
+      static const int normchipindex = this->GetIndex(vTrackProfiles_,"p_normchi2_vs_p");
       vTrackProfiles_[normchipindex]->Fill(track->p(),normchi2);
-      static const int chiProbetaindex = this->GetIndex(vTrackProfiles_,"prof_chi2Prob_vs_eta");
+      static const int chiProbetaindex = this->GetIndex(vTrackProfiles_,"p_chi2Prob_vs_eta");
       vTrackProfiles_[chiProbetaindex]->Fill(track->eta(),chi2Prob);
-      static const int normchietaindex = this->GetIndex(vTrackProfiles_,"prof_normchi2_vs_eta");
+      static const int normchietaindex = this->GetIndex(vTrackProfiles_,"p_normchi2_vs_eta");
       vTrackProfiles_[normchietaindex]->Fill(track->eta(),normchi2);
-      static const int kappaphiindex = this->GetIndex(vTrackProfiles_,"prof_kappa_vs_phi");
+      static const int kappaphiindex = this->GetIndex(vTrackProfiles_,"p_kappa_vs_phi");
       vTrackProfiles_[kappaphiindex]->Fill(track->phi(),kappa);
-      static const int kappaetaindex = this->GetIndex(vTrackProfiles_,"prof_kappa_vs_eta");
+      static const int kappaetaindex = this->GetIndex(vTrackProfiles_,"p_kappa_vs_eta");
       vTrackProfiles_[kappaetaindex]->Fill(track->eta(),kappa);
-      static const int ptResphiindex = this->GetIndex(vTrackProfiles_,"prof_ptResolution_vs_phi");
+      static const int ptResphiindex = this->GetIndex(vTrackProfiles_,"p_ptResolution_vs_phi");
       vTrackProfiles_[ptResphiindex]->Fill(track->phi(),track->ptError()/track->pt());
-      static const int ptResetaindex = this->GetIndex(vTrackProfiles_,"prof_ptResolution_vs_eta");
+      static const int ptResetaindex = this->GetIndex(vTrackProfiles_,"p_ptResolution_vs_eta");
       vTrackProfiles_[ptResetaindex]->Fill(track->eta(),track->ptError()/track->pt());
       
       // Fill 2D track histos
@@ -576,47 +645,36 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
 	hdzBS->Fill(dz);
       }
       
-      //dxy with respect to the primary vertex
-      reco::Vertex pvtx;
-      edm::Handle<reco::VertexCollection> vertexHandle;
+      // //dxy with respect to the primary vertex
+      // reco::Vertex pvtx;
+      // edm::Handle<reco::VertexCollection> vertexHandle;
       // reco::VertexCollection vertexCollection;
-      event.getByToken(vertexToken,vertexHandle);
       // event.getByLabel("offlinePrimaryVertices",vertexHandle);
-      double mindxy = 100.;
-      double dz = 100;
-      if(vertexHandle.isValid()) {
-	// std::cout<<"n. vertices "<<vertexCollection.size()<<std::endl;
-	pvtx = vertexHandle->at(0);
-      	for(reco::VertexCollection::const_iterator ipvtx = vertexHandle->begin(); ipvtx!=vertexHandle->end(); ++ipvtx) {
-      	  math::XYZPoint mypoint( ipvtx->x(), ipvtx->y(),ipvtx->z());
-      	  if(abs(mindxy)>abs(track->dxy(mypoint))){
-      	    mindxy = track->dxy(mypoint);
-      	    dz=track->dz(mypoint);
-      	    //std::cout<<"dxy: "<<mindxy<<"dz: "<<dz<<std::endl;
-      	  }
-      	}
+      // double mindxy = 100.;
+      // double dz = 100;
+      // if(vertexHandle.isValid()) {
+      // 	for(reco::VertexCollection::const_iterator pvtx = vertexHandle->begin(); pvtx!=vertexHandle->end(); ++pvtx) {
+      // 	  math::XYZPoint mypoint( pvtx->x(), pvtx->y(), pvtx->z());
+      // 	  if(abs(mindxy)>abs(track->dxy(mypoint))){
+      // 	    mindxy = track->dxy(mypoint);
+      // 	    dz=track->dz(mypoint);
+      // 	    std::cout<<"dxy: "<<mindxy<<"dz: "<<dz<<std::endl;
+      // 	  }
+      // 	}
 
-	fillTrackHistos(hDA,"all",&(*track),pvtx,beamSpot,fBfield_,theB_,
-			[](const reco::Track*, const reco::Vertex) -> bool { return true; }
-			);
+      // 	hdxyPV->Fill(mindxy);
+      // 	hd0PV->Fill(-mindxy);
+      // 	hdzPV->Fill(dz);
 	
-	fillTrackHistos(hDA,"sel",&(*track),pvtx,beamSpot,fBfield_,theB_,
-			[](const reco::Track* track, const reco::Vertex pvtx) -> bool { return track->pt() > 10. && abs(track->dxy(pvtx.position()))/track->dxyError() < 5;}
-			);
+      // 	hd0PVvsphi->Fill(track->phi(),-mindxy);
+      // 	hd0PVvseta->Fill(track->eta(),-mindxy);
+      // 	hd0PVvspt->Fill(track->pt(),-mindxy);
 
-      	hdxyPV->Fill(mindxy);
-      	hd0PV->Fill(-mindxy);
-      	hdzPV->Fill(dz);
-	
-      	hd0PVvsphi->Fill(track->phi(),-mindxy);
-      	hd0PVvseta->Fill(track->eta(),-mindxy);
-      	hd0PVvspt->Fill(track->pt(),-mindxy);
-
-      } else {
-      	hdxyPV->Fill(100);
-      	hd0PV->Fill(100);
-      	hdzPV->Fill(100);
-      }
+      // } else {
+      // 	hdxyPV->Fill(100);
+      // 	hd0PV->Fill(100);
+      // 	hdzPV->Fill(100);
+      // }
 
       // std::cout<<"end of track loop"<<std::endl;
 
@@ -637,126 +695,137 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
 
     TH1D::SetDefaultSumw2(kTRUE);
 
-    TFileDirectory DA = fs->mkdir("VertexPlots");
-    //DA.cd();
-    hDA=bookVertexHistograms(DA);
+    isPhase1_=true;
 
     ievt=0;
-    hrun  = fs->make<TH1D>("hrun","run",1000000,0,1000000);
-    hlumi = fs->make<TH1D>("hlumi","lumi",1000,0,1000);
-    
-    hchi2 = fs->make<TH1D>("hchi2","chi2/ndf;#chi^{2}/ndf;tracks",100,0,5.);
-    hCharge = fs->make<TH1D>("hcharge","charge;Charge of the track;tracks",5,-2.5,2.5);
-    hNtrk = fs->make<TH1D>("hNtrk","ntracks;Number of Tracks;events",200,0.,200.);
-    hNtrkZoom=fs->make<TH1D>("hNtrkZoom","Number of tracks; number of tracks;events",10,0.,10.);
-    hNhighPurity = fs->make<TH1D>("hNhighPurity","n. high purity tracks;Number of high purity tracks;events",200,0.,200.);
+    itrks=0;
 
-    htrkAlgo     = fs->make<TH1I>("htrkAlgo","tracking step;iterative tracking step;tracks",12,-0.5,11.5);
+    hrun  = fs->make<TH1D>("h_run","run",100000,230000,240000);
+    hlumi = fs->make<TH1D>("h_lumi","lumi",1000,0,1000);
+    
+    hchi2ndof = fs->make<TH1D>("h_chi2ndof","chi2/ndf;#chi^{2}/ndf;tracks",100,0,5.);
+    hCharge = fs->make<TH1D>("h_charge","charge;Charge of the track;tracks",5,-2.5,2.5);
+    hNtrk        = fs->make<TH1D>("h_Ntrk","ntracks;Number of Tracks;events",200,0.,200.);
+    hNtrkZoom    =fs->make<TH1D>("h_NtrkZoom","Number of tracks; number of tracks;events",10,0.,10.);
+    hNhighPurity = fs->make<TH1D>("h_NhighPurity","n. high purity tracks;Number of high purity tracks;events",200,0.,200.);
+
+    htrkAlgo     = fs->make<TH1I>("h_trkAlgo","tracking step;iterative tracking step;tracks",12,-0.5,11.5);
     TString algos[12] = {"undef","ctf","rs","cosmic","iter0","iter1","iter2","iter3","iter4","iter5","iter6","iter7"};
     for(int nbin=1;nbin<=htrkAlgo->GetNbinsX();nbin++){
       htrkAlgo->GetXaxis()->SetBinLabel(nbin,algos[nbin-1]);
     }
 
-    htrkQuality  = fs->make<TH1I>("htrkQuality","track quality;track quality;tracks",6,-1,5);
+    htrkQuality  = fs->make<TH1I>("h_trkQuality","track quality;track quality;tracks",6,-1,5);
     TString qualities[7] = {"undef","loose","tight","highPurity","confirmed","goodIterative"};
     for(int nbin=1;nbin<=htrkQuality->GetNbinsX();nbin++){
       htrkQuality->GetXaxis()->SetBinLabel(nbin,qualities[nbin-1]);
     }
     
-    hP      = fs->make<TH1D>("hP","Momentum;track momentum [GeV];tracks",100,0.,100.);
-    hQoverP = fs->make<TH1D>("hqoverp","Track q/p; track q/p [GeV^{-1}];tracks",100,-1.,1.);
-    hQoverPZoom = fs->make<TH1D>("hqoverpZoom","Track q/p; track q/p [GeV^{-1}];tracks",100,-0.1,0.1); 
-    hPt     = fs->make<TH1D>("hPt","Transverse Momentum;track p_{T} [GeV];tracks",100,0.,100.);
-    hPtZoom = fs->make<TH1D>("hPtZoom","Transverse Momentum;track p_{T} [GeV];tracks",100,0.,10.);
+    hP      = fs->make<TH1D>("h_P","Momentum;track momentum [GeV];tracks",100,0.,100.);
+    hQoverP = fs->make<TH1D>("h_qoverp","Track q/p; track q/p [GeV^{-1}];tracks",100,-1.,1.);
+    hQoverPZoom = fs->make<TH1D>("h_qoverpZoom","Track q/p; track q/p [GeV^{-1}];tracks",100,-0.1,0.1); 
+    hPt     = fs->make<TH1D>("h_Pt","Transverse Momentum;track p_{T} [GeV];tracks",100,0.,100.);
+    hHit    = fs->make<TH1D>("h_nHits","Number of hits;track n. hits;tracks",50,-0.5,49.5);
+    hHit2D  = fs->make<TH1D>("h_nHit2D","Number of 2D hits; number of 2D hits;tracks",20,0,20);
+
+    hHitCountVsZBPix = fs->make<TH1D>("h_HitCountVsZBpix","Number of BPix hits vs z;hit global z;hits",60,-30,30);
+    hHitCountVsZFPix = fs->make<TH1D>("h_HitCountVsZFpix","Number of FPix hits vs z;hit global z;hits",100,-100,100);
+
+    hHitCountVsXBPix = fs->make<TH1D>("h_HitCountVsXBpix","Number of BPix hits vs x;hit global x;hits",20,-20,20);
+    hHitCountVsXFPix = fs->make<TH1D>("h_HitCountVsXFpix","Number of FPix hits vs x;hit global x;hits",20,-20,20);
+
+    hHitCountVsYBPix = fs->make<TH1D>("h_HitCountVsYBpix","Number of BPix hits vs y;hit global y;hits",20,-20,20);
+    hHitCountVsYFPix = fs->make<TH1D>("h_HitCountVsYFpix","Number of FPix hits vs y;hit global y;hits",20,-20,20);
+
+    hHitCountVsThetaBPix = fs->make<TH1D>("h_HitCountVsThetaBpix","Number of BPix hits vs #theta;hit global #theta;hits",20,0.,TMath::Pi());
+    hHitCountVsPhiBPix	 = fs->make<TH1D>("h_HitCountVsPhiBpix","Number of BPix hits vs #phi;hit global #phi;hits",20,-TMath::Pi(),TMath::Pi());
+                        
+    hHitCountVsThetaFPix = fs->make<TH1D>("h_HitCountVsThetaFpix","Number of FPix hits vs #theta;hit global #theta;hits",40,0.,TMath::Pi());
+    hHitCountVsPhiFPix	 = fs->make<TH1D>("h_HitCountVsPhiFpix","Number of FPix hits vs #phi;hit global #phi;hits",20,-TMath::Pi(),TMath::Pi());
+
+    hEta    = fs->make<TH1D>("h_Eta","Track pseudorapidity; track #eta;tracks",100,-TMath::Pi(),TMath::Pi());
+    hPhi    = fs->make<TH1D>("h_Phi","Track azimuth; track #phi;tracks",100,-TMath::Pi(),TMath::Pi());
     
-    hHit    = fs->make<TH1D>("hHit","Number of hits;track n. hits;tracks",50,-0.5,49.5);
-    hHit2D  = fs->make<TH1D>("hHit2D","Number of 2D hits; number of 2D hits;tracks",20,0,20);
-
-    hHitCountVsZBPix = fs->make<TH1D>("hHitCountVsZBpix","Number of hits vs z;hit global z;hits",100,-100,100);
-    hHitCountVsZFPix = fs->make<TH1D>("hHitCountVsZFpix","Number of hits vs z;hit global z;hits",100,-100,100);
-
-    hEta    = fs->make<TH1D>("hEta","Track pseudorapidity; track #eta;tracks",100,-TMath::Pi(),TMath::Pi());
-    hPhi    = fs->make<TH1D>("hPhi","Track azimuth; track #phi;tracks",100,-TMath::Pi(),TMath::Pi());
-    
-    hPhp    = fs->make<TH1D>("hPhp","Momentum (high purity);track momentum [GeV];tracks",100,0.,100.);
-    hPthp   = fs->make<TH1D>("hPthp","Transverse Momentum (high purity);track p_{T} [GeV];tracks",100,0.,100.);
-    hHithp  = fs->make<TH1D>("hHithp","Number of hits (high purity);track n. hits;tracks",30,0,30);
-    hEtahp  = fs->make<TH1D>("hEtahp","Track pseudorapidity (high purity); track #eta;tracks",100,-TMath::Pi(),TMath::Pi());
-    hPhihp  = fs->make<TH1D>("hPhihp","Track azimuth (high purity); track #phi;tracks",100,-TMath::Pi(),TMath::Pi());
-    hchi2hp = fs->make<TH1D>("hchi2","chi2/ndf (high purity);#chi^{2}/ndf;tracks",100,0,5.);
-    hchi2Probhp = fs->make<TH1D>("hchiProbhp","#chi^{2} probability (high purity);#chi^{2}prob_{Track};Number of Tracks",100,0.0,1.);
-
-    hPhiDT       = fs->make<TH1D>("hPhiDT","hPhiDT",100,-TMath::Pi(),TMath::Pi());
-    hPhiRPCPlus  = fs->make<TH1D>("hPhiRPCPlus","hPhiRPCPlus;track #phi;tracks",100,-TMath::Pi(),TMath::Pi());
-    hPhiRPCMinus = fs->make<TH1D>("hPhiRPCMinus","hPhiRPCMinus;track #phi;tracks",100,-TMath::Pi(),TMath::Pi());
-    hPhiCSCPlus  = fs->make<TH1D>("hPhiCSCPlus","hPhiCSCPlus;track #phi;track",100,-TMath::Pi(),TMath::Pi());
-    hPhiCSCMinus = fs->make<TH1D>("hPhiCSCMinus","hPhiCSCMinus;track #phi;tracks",100,-TMath::Pi(),TMath::Pi());
+    hPhiBarrel       = fs->make<TH1D>("h_PhiBarrel","hPhiBarrel (0<|#eta|<0.8);track #Phi;tracks",100,-TMath::Pi(),TMath::Pi());
+    hPhiOverlapPlus  = fs->make<TH1D>("h_PhiOverlapPlus","hPhiOverlapPlus (0.8<#eta<1.4);track #phi;tracks",100,-TMath::Pi(),TMath::Pi());
+    hPhiOverlapMinus = fs->make<TH1D>("h_PhiOverlapMinus","hPhiOverlapMinus (-1.4<#eta<-0.8);track #phi;tracks",100,-TMath::Pi(),TMath::Pi());
+    hPhiEndcapPlus  = fs->make<TH1D>("h_PhiEndcapPlus","hPhiEndcapPlus (#eta>1.4);track #phi;track",100,-TMath::Pi(),TMath::Pi());
+    hPhiEndcapMinus = fs->make<TH1D>("h_PhiEndcapMinus","hPhiEndcapMinus (#eta<1.4);track #phi;tracks",100,-TMath::Pi(),TMath::Pi());
     
     if(!isCosmics_){
-      hvx  = fs->make<TH1D>("hvx" ,"hvx; track v_{x} [cm];tracks",100,-1.5,1.5);
-      hvy  = fs->make<TH1D>("hvy" ,"hvy; track v_{y} [cm];tracks",100,-1.5,1.5);
-      hvz  = fs->make<TH1D>("hvz" ,"hvz; track v_{z} [cm];tracks",100,-20.,20.);
-      hd0  = fs->make<TH1D>("hd0" ,"hd0; track d_{0} [cm];tracks",100,-1. ,1.);
-      hdxy = fs->make<TH1D>("hdxy","hdxy;track d_{xy} [cm]; tracks",100,-0.5,0.5);
-      hdz  = fs->make<TH1D>("hdz" ,"hdz; track d_{z} [cm]; tracks" ,100,-20,20);
 
-      hd0PVvsphi = fs->make<TH2D>("hd0PVvsphi","hd0PVvsphi;track #phi;track d_{0}(PV) [cm]",160,-TMath::Pi(),TMath::Pi(),100,-1.,1.);
-      hd0PVvseta = fs->make<TH2D>("hd0PVvseta","hdPV0vseta;track #eta;track d_{0}(PV) [cm]",160,-2.5,2.5,100,-1.,1.);
-      hd0PVvspt  = fs->make<TH2D>("hd0PVvspt" ,"hdPV0vspt;track p_{T};d_{0}(PV) [cm]"      ,50,0.,100.,100,-1,1.);
+      hPhp    = fs->make<TH1D>("h_P_hp","Momentum (high purity);track momentum [GeV];tracks",100,0.,100.);
+      hPthp   = fs->make<TH1D>("h_Pt_hp","Transverse Momentum (high purity);track p_{T} [GeV];tracks",100,0.,100.);
+      hHithp  = fs->make<TH1D>("h_nHit_hp","Number of hits (high purity);track n. hits;tracks",30,0,30);
+      hEtahp  = fs->make<TH1D>("h_Eta_hp","Track pseudorapidity (high purity); track #eta;tracks",100,-TMath::Pi(),TMath::Pi());
+      hPhihp  = fs->make<TH1D>("h_Phi_hp","Track azimuth (high purity); track #phi;tracks",100,-TMath::Pi(),TMath::Pi());
+      hchi2ndofhp = fs->make<TH1D>("h_chi2ndof_hp","chi2/ndf (high purity);#chi^{2}/ndf;tracks",100,0,5.);
+      hchi2Probhp = fs->make<TH1D>("hchi2_Prob_hp","#chi^{2} probability (high purity);#chi^{2}prob_{Track};Number of Tracks",100,0.0,1.);
+
+      hvx  = fs->make<TH1D>("h_vx" ,"Track v_{x} ; track v_{x} [cm];tracks",100,-1.5,1.5);
+      hvy  = fs->make<TH1D>("h_vy" ,"Track v_{y} ; track v_{y} [cm];tracks",100,-1.5,1.5);
+      hvz  = fs->make<TH1D>("h_vz" ,"Track v_{z} ; track v_{z} [cm];tracks",100,-20.,20.);
+      hd0  = fs->make<TH1D>("h_d0" ,"Track d_{0} ; track d_{0} [cm];tracks",100,-1. ,1.);
+      hdxy = fs->make<TH1D>("h_dxy","Track d_{xy}; track d_{xy} [cm]; tracks",100,-0.5,0.5);
+      hdz  = fs->make<TH1D>("h_dz" ,"Track d_{z} ; track d_{z} [cm]; tracks" ,100,-20,20);
+
+      hd0PVvsphi = fs->make<TH2D>("h2_d0PVvsphi","hd0PVvsphi;track #phi;track d_{0}(PV) [cm]",160,-TMath::Pi(),TMath::Pi(),100,-1.,1.);
+      hd0PVvseta = fs->make<TH2D>("h2_d0PVvseta","hdPV0vseta;track #eta;track d_{0}(PV) [cm]",160,-2.5,2.5,100,-1.,1.);
+      hd0PVvspt  = fs->make<TH2D>("h2_d0PVvspt" ,"hdPV0vspt;track p_{T};d_{0}(PV) [cm]"      ,50,0.,100.,100,-1,1.);
      
-      hdxyBS = fs->make<TH1D>("hdxyBS","hdxyBS; track d_{xy}(BS) [cm];tracks",100,-0.1,0.1);
-      hd0BS  = fs->make<TH1D>("hd0BS" ,"hd0BS ; track d_{0}(BS) [cm];tracks" ,100,-0.1,0.1);
-      hdzBS  = fs->make<TH1D>("hdzBS" ,"hdzBS ; track d_{z}(BS) [cm];tracks" ,100,-12,12);
-      hdxyPV = fs->make<TH1D>("hdxyPV","hdxyPV; track d_{xy}(PV) [cm];tracks",100,-0.1,0.1);
-      hd0PV  = fs->make<TH1D>("hd0PV" ,"hd0PV ; track d_{0}(PV) [cm];tracks" ,100,-0.15,0.15);
-      hdzPV  = fs->make<TH1D>("hdzPV" ,"hdzPV ; track d_{z}(PV) [cm];tracks" ,100,-0.1,0.1);
+      hdxyBS = fs->make<TH1D>("h_dxyBS","hdxyBS; track d_{xy}(BS) [cm];tracks",100,-0.1,0.1);
+      hd0BS  = fs->make<TH1D>("h_d0BS" ,"hd0BS ; track d_{0}(BS) [cm];tracks" ,100,-0.1,0.1);
+      hdzBS  = fs->make<TH1D>("h_dzBS" ,"hdzBS ; track d_{z}(BS) [cm];tracks" ,100,-12,12);
+      hdxyPV = fs->make<TH1D>("h_dxyPV","hdxyPV; track d_{xy}(PV) [cm];tracks",100,-0.1,0.1);
+      hd0PV  = fs->make<TH1D>("h_d0PV" ,"hd0PV ; track d_{0}(PV) [cm];tracks" ,100,-0.15,0.15);
+      hdzPV  = fs->make<TH1D>("h_dzPV" ,"hdzPV ; track d_{z}(PV) [cm];tracks" ,100,-0.1,0.1);
       
-      hnhTIB = fs->make<TH1D>("nhTIB"  ,"nhTIB;# hits in TIB; tracks"  ,20,0.,20.);
-      hnhTID = fs->make<TH1D>("nhTID"  ,"nhTID;# hits in TID; tracks"  ,20,0.,20.);
-      hnhTOB = fs->make<TH1D>("nhTOB"  ,"nhTOB;# hits in TOB; tracks"  ,20,0.,20.);
-      hnhTEC = fs->make<TH1D>("nhTEC"  ,"nhTEC;# hits in TEC; tracks"  ,20,0.,20.);
+      hnhTIB = fs->make<TH1D>("h_nHitTIB"  ,"nhTIB;# hits in TIB; tracks"  ,20,0.,20.);
+      hnhTID = fs->make<TH1D>("h_nHitTID"  ,"nhTID;# hits in TID; tracks"  ,20,0.,20.);
+      hnhTOB = fs->make<TH1D>("h_nHitTOB"  ,"nhTOB;# hits in TOB; tracks"  ,20,0.,20.);
+      hnhTEC = fs->make<TH1D>("h_nHitTEC"  ,"nhTEC;# hits in TEC; tracks"  ,20,0.,20.);
       
     } else {
       
-      hvx=fs->make<TH1D>("hvx","Track v_{x};track v_{x} [cm];tracks",100,-100.,100.);
-      hvy=fs->make<TH1D>("hvy","Track v_{y};track v_{y} [cm];tracks",100,-100.,100.);
-      hvz=fs->make<TH1D>("hvz","Track v_{z};track v_{z} [cm];track",100,-100.,100.);
-      hd0=fs->make<TH1D>("hd0","Track d_{0};track d_{0} [cm];track",100,-100.,100.);
-      hdxy=fs->make<TH1D>("hdxy","Track d_{xy};track d_{xy} [cm];tracks",100,-100,100);
-      hdz=fs->make<TH1D>("hdz","Track d_{z};track d_{z} [cm];tracks",100,-200,200);
+      hvx  =fs->make<TH1D>("h_vx","Track v_{x};track v_{x} [cm];tracks",100,-100.,100.);
+      hvy  =fs->make<TH1D>("h_vy","Track v_{y};track v_{y} [cm];tracks",100,-100.,100.);
+      hvz  =fs->make<TH1D>("h_vz","Track v_{z};track v_{z} [cm];track",100,-100.,100.);
+      hd0  =fs->make<TH1D>("h_d0","Track d_{0};track d_{0} [cm];track",100,-100.,100.);
+      hdxy =fs->make<TH1D>("h_dxy","Track d_{xy};track d_{xy} [cm];tracks",100,-100,100);
+      hdz  =fs->make<TH1D>("h_dz","Track d_{z};track d_{z} [cm];tracks",100,-200,200);
 
-      hd0vsphi=fs->make<TH2D>("hd0vsphi","Track d_{0} vs #phi; track #phi;track d_{0} [cm]",160,-3.20,3.20,100,-100.,100.);
-      hd0vseta=fs->make<TH2D>("hd0vseta","Track d_{0} vs #eta; track #eta;track d_{0} [cm]",160,-3.20,3.20,100,-100.,100.);
-      hd0vspt=fs->make<TH2D>("hd0vspt","Track d_{0} vs p_{T};track p_{T};track d_{0} [cm]",50,0.,100.,100,-100,100);
+      hd0vsphi=fs->make<TH2D>("h2_d0vsphi","Track d_{0} vs #phi; track #phi;track d_{0} [cm]",160,-3.20,3.20,100,-100.,100.);
+      hd0vseta=fs->make<TH2D>("h2_d0vseta","Track d_{0} vs #eta; track #eta;track d_{0} [cm]",160,-3.20,3.20,100,-100.,100.);
+      hd0vspt=fs->make<TH2D>("h2_d0vspt","Track d_{0} vs p_{T};track p_{T};track d_{0} [cm]",50,0.,100.,100,-100,100);
       
-      hdxyBS=fs->make<TH1D>("hdxyBS","Track d_{xy}(BS);d_{xy}(BS) [cm];tracks",100,-100.,100.);
-      hd0BS=fs->make<TH1D>("hd0BS","Track d_{0}(BS);d_{0}(BS) [cm];tracks",100,-100.,100.);
-      hdzBS=fs->make<TH1D>("hdzBS","Track d_{z}(BS);d_{z}(BS) [cm];tracks",100,-100.,100.);
-      hdxyPV=fs->make<TH1D>("hdxyPV","Track d_{xy}(PV); d_{xy}(PV) [cm];tracks",100,-100.,100.);
-      hd0PV=fs->make<TH1D>("hd0PV","Track d_{0}(PV); d_{0}(PV) [cm];tracks",100,-100.,100.);
-      hdzPV=fs->make<TH1D>("hdzPV","Track d_{z}(PV); d_{z}(PV) [cm];tracks",100,-100.,100.);
+      hdxyBS=fs->make<TH1D>("h_dxyBS","Track d_{xy}(BS);d_{xy}(BS) [cm];tracks",100,-100.,100.);
+      hd0BS=fs->make<TH1D>("h_d0BS","Track d_{0}(BS);d_{0}(BS) [cm];tracks",100,-100.,100.);
+      hdzBS=fs->make<TH1D>("h_dzBS","Track d_{z}(BS);d_{z}(BS) [cm];tracks",100,-100.,100.);
+      hdxyPV=fs->make<TH1D>("h_dxyPV","Track d_{xy}(PV); d_{xy}(PV) [cm];tracks",100,-100.,100.);
+      hd0PV=fs->make<TH1D>("h_d0PV","Track d_{0}(PV); d_{0}(PV) [cm];tracks",100,-100.,100.);
+      hdzPV=fs->make<TH1D>("h_dzPV","Track d_{z}(PV); d_{z}(PV) [cm];tracks",100,-100.,100.);
 
-      hnhTIB = fs->make<TH1D>("nhTIB"  ,"nhTIB;# hits in TIB; tracks"  ,30,0.,30.);
-      hnhTID = fs->make<TH1D>("nhTID"  ,"nhTID;# hits in TID; tracks"  ,30,0.,30.);
-      hnhTOB = fs->make<TH1D>("nhTOB"  ,"nhTOB;# hits in TOB; tracks"  ,30,0.,30.);
-      hnhTEC = fs->make<TH1D>("nhTEC"  ,"nhTEC;# hits in TEC; tracks"  ,30,0.,30.);
+      hnhTIB = fs->make<TH1D>("h_nHitTIB"  ,"nhTIB;# hits in TIB; tracks"  ,30,0.,30.);
+      hnhTID = fs->make<TH1D>("h_nHitTID"  ,"nhTID;# hits in TID; tracks"  ,30,0.,30.);
+      hnhTOB = fs->make<TH1D>("h_nHitTOB"  ,"nhTOB;# hits in TOB; tracks"  ,30,0.,30.);
+      hnhTEC = fs->make<TH1D>("h_nHitTEC"  ,"nhTEC;# hits in TEC; tracks"  ,30,0.,30.);
        
     }
 
-    hnhpxb = fs->make<TH1D>("nhpxb"  ,"nhpxb;# hits in Pixel Barrel; tracks"  ,10,0.,10.);
-    hnhpxe = fs->make<TH1D>("nhpxe"  ,"nhpxe;# hits in Pixel Endcap; tracks"  ,10,0.,10.);
+    hnhpxb = fs->make<TH1D>("h_nHitPXB"  ,"nhpxb;# hits in Pixel Barrel; tracks"  ,10,0.,10.);
+    hnhpxe = fs->make<TH1D>("h_nHitPXE"  ,"nhpxe;# hits in Pixel Endcap; tracks"  ,10,0.,10.);
     
     hHitComposition =  fs->make<TH1D>("h_hitcomposition","track hit composition;;# hits",6,-0.5,5.5);
     
-    pNBpixHitsVsVx = fs->make<TProfile>("prof_NpixHits_vs_Vx",
+    pNBpixHitsVsVx = fs->make<TProfile>("p_NpixHits_vs_Vx",
 					"n. Barrel Pixel hits vs. v_{x};v_{x} (cm);n. BPix hits",
 					20,-20,20);
 
-    pNBpixHitsVsVy = fs->make<TProfile>("prof_NpixHits_vs_Vy",
+    pNBpixHitsVsVy = fs->make<TProfile>("p_NpixHits_vs_Vy",
 					"n. Barrel Pixel hits vs. v_{y};v_{y} (cm);n. BPix hits",
 					20,-20,20);
 
-    pNBpixHitsVsVz = fs->make<TProfile>("prof_NpixHits_vs_Vz",
+    pNBpixHitsVsVz = fs->make<TProfile>("p_NpixHits_vs_Vz",
 					"n. Barrel Pixel hits vs. v_{z};v_{z} (cm);n. BPix hits",
 					20,-100,100);
 
@@ -791,10 +860,10 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
 					   "Curvature |#kappa| Tracks Difference;|#kappa_{Track}|;# Pos Tracks - # Neg Tracks",
 					   100,.0,.05));
     vTrackHistos_.push_back(fs->make<TH1F>("h_chi2",
-					   "#chi^{2};#chi^{2}_{Track};Number of Tracks",
+					   "Track #chi^{2};#chi^{2}_{Track};Number of Tracks",
 					   500,-0.01,500.));
     vTrackHistos_.push_back(fs->make<TH1F>("h_chi2Prob",
-					   "#chi^{2} probability;#chi^{2}prob_{Track};Number of Tracks",
+					   "#chi^{2} probability;Track Prob(#chi^{2},ndof);Number of Tracks",
 					   100,0.0,1.));	
     vTrackHistos_.push_back(fs->make<TH1F>("h_normchi2",
 					   "#chi^{2}/ndof;#chi^{2}/ndof;Number of Tracks",
@@ -802,66 +871,66 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
     //variable binning for chi2/ndof vs. pT
     double xBins[19]={0.,0.15,0.5,1.,1.5,2.,2.5,3.,3.5,4.,4.5,5.,7.,10.,15.,25.,40.,100.,200.};
     vTrackHistos_.push_back(fs->make<TH1F>("h_pt",
-					   "p_{T}^{track};p_{T}^{track} [GeV];Number of Tracks",
+					   "Track p_{T};p_{T}^{track} [GeV];Number of Tracks",
 					   250,0.,250));
     vTrackHistos_.push_back(fs->make<TH1F>("h_ptrebin",
-					   "p_{T}^{track};p_{T}^{track} [GeV];Number of Tracks",
+					   "Track p_{T};p_{T}^{track} [GeV];Number of Tracks",
 					   18,xBins));
     vTrackHistos_.push_back(fs->make<TH1F>("h_ptResolution",
 					   "#delta_{p_{T}}/p_{T}^{track};#delta_{p_{T}}/p_{T}^{track};Number of Tracks",
 					   100,0.,0.5));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_d0_vs_phi",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_d0_vs_phi",
 						 "Transverse Impact Parameter vs. #phi;#phi_{Track};#LT d_{0} #GT [cm]",
 						 100,-3.15,3.15));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_dz_vs_phi",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_dz_vs_phi",
 						 "Longitudinal Impact Parameter vs. #phi;#phi_{Track};#LT d_{z} #GT [cm]",
 						 100,-3.15,3.15));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_d0_vs_eta",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_d0_vs_eta",
 						 "Transverse Impact Parameter vs. #eta;#eta_{Track};#LT d_{0} #GT [cm]",
 						 100,-3.15,3.15));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_dz_vs_eta",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_dz_vs_eta",
 						 "Longitudinal Impact Parameter vs. #eta;#eta_{Track};#LT d_{z} #GT [cm]",
 						 100,-3.15,3.15));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_chi2_vs_phi",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_chi2_vs_phi",
 						 "#chi^{2} vs. #phi;#phi_{Track};#LT #chi^{2} #GT",
 						 100,-3.15,3.15));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_chi2Prob_vs_phi",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_chi2Prob_vs_phi",
 						 "#chi^{2} probablility vs. #phi;#phi_{Track};#LT #chi^{2} probability#GT",
 						 100,-3.15,3.15));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_chi2Prob_vs_d0",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_chi2Prob_vs_d0",
 						 "#chi^{2} probablility vs. |d_{0}|;|d_{0}|[cm];#LT #chi^{2} probability#GT",
 						 100,0,80));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_chi2Prob_vs_dz",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_chi2Prob_vs_dz",
 						 "#chi^{2} probablility vs. dz;d_{z} [cm];#LT #chi^{2} probability#GT",
 						 100,-30,30));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_normchi2_vs_phi",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_normchi2_vs_phi",
 						 "#chi^{2}/ndof vs. #phi;#phi_{Track};#LT #chi^{2}/ndof #GT",
 						 100,-3.15,3.15));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_chi2_vs_eta",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_chi2_vs_eta",
 						 "#chi^{2} vs. #eta;#eta_{Track};#LT #chi^{2} #GT",
 						 100,-3.15,3.15));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_normchi2_vs_pt",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_normchi2_vs_pt",
 						 "norm #chi^{2} vs. p_{T}_{Track}; p_{T}_{Track};#LT #chi^{2}/ndof #GT",
 						 18,xBins));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_normchi2_vs_p",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_normchi2_vs_p",
 						 "#chi^{2}/ndof vs. p_{Track};p_{Track};#LT #chi^{2}/ndof #GT",
 						 18,xBins));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_chi2Prob_vs_eta",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_chi2Prob_vs_eta",
 						 "#chi^{2} probability vs. #eta;#eta_{Track};#LT #chi^{2} probability #GT",
 						 100,-3.15,3.15));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_normchi2_vs_eta",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_normchi2_vs_eta",
 						 "#chi^{2}/ndof vs. #eta;#eta_{Track};#LT #chi^{2}/ndof #GT",
 						 100,-3.15,3.15));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_kappa_vs_phi",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_kappa_vs_phi",
 						 "#kappa vs. #phi;#phi_{Track};#kappa",
 						 100,-3.15,3.15));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_kappa_vs_eta",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_kappa_vs_eta",
 						 "#kappa vs. #eta;#eta_{Track};#kappa",
 						 100,-3.15,3.15));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_ptResolution_vs_phi",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_ptResolution_vs_phi",
 						 "#delta_{p_{T}}/p_{T}^{track};#phi^{track};#delta_{p_{T}}/p_{T}^{track}",
 						 100, -3.15,3.15));
-    vTrackProfiles_.push_back(fs->make<TProfile>("prof_ptResolution_vs_eta",
+    vTrackProfiles_.push_back(fs->make<TProfile>("p_ptResolution_vs_eta",
 						 "#delta_{p_{T}}/p_{T}^{track};#eta^{track};#delta_{p_{T}}/p_{T}^{track}",
 						 100, -3.15,3.15));
     vTrack2DHistos_.push_back(fs->make<TH2F>("h2_d0_vs_phi",
@@ -915,7 +984,75 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
   { 
     std::cout<< "*******************************" << std::endl;
     std::cout<< "Events run in total: " << ievt << std::endl;
+    std::cout<< "n. tracks: "<<itrks<<std::endl;
     std::cout<< "*******************************" << std::endl;
+    
+    Int_t nFiringTriggers = triggerMap_.size();
+    std::cout<<"firing triggers: "<<nFiringTriggers<<std::endl;
+    std::cout<< "*******************************" << std::endl;
+
+    tksByTrigger_= fs->make<TH1D>("tksByTrigger","tracks by HLT path;;% of # traks",nFiringTriggers,-0.5,nFiringTriggers-0.5);
+    evtsByTrigger_= fs->make<TH1D>("evtsByTrigge","events by HLT path;;% of # events",nFiringTriggers,-0.5,nFiringTriggers-0.5);
+   
+    Int_t i =0;
+    
+    for(std::map<std::string,std::pair<int,int> >::iterator it=triggerMap_.begin(); it!=triggerMap_.end(); ++it){
+      i++;
+      
+      Double_t trkpercent = ((it->second).second)*100./Double_t(itrks);
+      Double_t evtpercent = ((it->second).first)*100./Double_t(ievt);
+
+      std::cout.precision(4);
+
+      std::cout<<"HLT path: "<<std::setw(60) << left << it->first << " | events firing: " << right << std::setw(8)<<(it->second).first << " ("<< setw(8) << fixed << evtpercent <<"%)"
+	       <<" | tracks collected: " <<std::setw(10)<< (it->second).second << " ("<< setw(8) << fixed << trkpercent <<"%)"<<  '\n';
+      
+      tksByTrigger_->SetBinContent(i,trkpercent);
+      tksByTrigger_->GetXaxis()->SetBinLabel(i,(it->first).c_str());
+      
+      evtsByTrigger_->SetBinContent(i,evtpercent);
+      evtsByTrigger_->GetXaxis()->SetBinLabel(i,(it->first).c_str());
+      
+    }
+
+    Int_t nRuns    = conditionsMap_.size();
+  
+    vector<int> theRuns_;
+    for(map<int,std::pair<int,float> >::iterator it = conditionsMap_.begin(); it != conditionsMap_.end(); ++it) {
+      theRuns_.push_back(it->first);
+    }
+
+    sort(theRuns_.begin(),theRuns_.end());
+    Int_t runRange = theRuns_[theRuns_.size()-1] - theRuns_[0];
+    
+    std::cout<< "*******************************" << std::endl;
+    std::cout<<"first run: "<<theRuns_[0]<<std::endl;
+    std::cout<<"last run:  "<<theRuns_[theRuns_.size()-1]<<std::endl;
+    std::cout<<"considered runs: "<<nRuns<<std::endl;
+    std::cout<< "*******************************" << std::endl;
+    
+    modeByRun_ = fs->make<TH1D>("modeByRun","Strip APV mode by run number;;APV mode (-1=deco,+1=peak)",runRange,theRuns_[0]-0.5,theRuns_[theRuns_.size()-1]-0.5);
+    fieldByRun_= fs->make<TH1D>("fieldByRun","CMS B-field intensity by run number;;B-field intensity [T]",runRange,theRuns_[0]-0.5,theRuns_[theRuns_.size()-1]-0.5);
+    
+    for(Int_t the_r=theRuns_[0];the_r<=theRuns_[theRuns_.size()-1];the_r++){
+
+      if(conditionsMap_.find(the_r)->second.first!=0){ 
+	std::cout<<"run:"<<the_r<<" | isPeak: "<< std::setw(4) << conditionsMap_.find(the_r)->second.first
+		 <<"| B-field: "<<conditionsMap_.find(the_r)->second.second<<" [T]"
+		 <<"| events: " <<setw(10)<<runInfoMap_.find(the_r)->second.first << ", tracks "<< setw(10) << runInfoMap_.find(the_r)->second.second <<std::endl;
+      }
+      
+      modeByRun_->SetBinContent(the_r-theRuns_[0],conditionsMap_.find(the_r)->second.first);
+      fieldByRun_->SetBinContent(the_r-theRuns_[0],conditionsMap_.find(the_r)->second.second);
+      // modeByRun_->GetXaxis()->SetBinLabel(the_r-theRuns_[0]+1,(const char*)the_r);
+    }
+    
+    pmap->save(true,0,0,"pixelmap.pdf",600,800);
+    pmap->save(true,0,0,"pixelmap.png",500,750); 
+
+    tmap->save(true,0,0,"trackermap.pdf");
+    tmap->save(true,0,0,"trackermap.png"); 
+
   }
 
   bool isHit2D(const TrackingRecHit &hit) 
@@ -957,234 +1094,8 @@ class GeneralTrackAnalyzerHisto : public edm::EDAnalyzer {
     // never reached...
   }
 
-  //*************************************************************
-  std::map<std::string, TH1*> bookVertexHistograms(TFileDirectory dir)
-  //*************************************************************
-  {
-
-    TH1F::SetDefaultSumw2(kTRUE);
-    
-    std::map<std::string, TH1*> h;
-    
-    // histograms of track quality (Data and MC)
-    std::string types[] = {"all","sel"};
-    for(int t=0; t<2; t++){
-      h["pseudorapidity_"+types[t]] =dir.make <TH1F>(("rapidity_"+types[t]).c_str(),"track pseudorapidity; track #eta; tracks",100,-3., 3.);
-      h["z0_"+types[t]] = dir.make<TH1F>(("z0_"+types[t]).c_str(),"track z_{0};track z_{0} (cm);tracks",80,-40., 40.);
-      h["phi_"+types[t]] = dir.make<TH1F>(("phi_"+types[t]).c_str(),"track #phi; track #phi;tracks",80,-TMath::Pi(), TMath::Pi());
-      h["eta_"+types[t]] = dir.make<TH1F>(("eta_"+types[t]).c_str(),"track #eta; track #eta;tracks",80,-4., 4.);
-      h["pt_"+types[t]] = dir.make<TH1F>(("pt_"+types[t]).c_str(),"track p_{T}; track p_{T} [GeV];tracks",100,0., 20.);
-      h["p_"+types[t]] = dir.make<TH1F>(("p_"+types[t]).c_str(),"track p; track p [GeV];tracks",100,0., 20.);
-      h["found_"+types[t]] = dir.make<TH1F>(("found_"+types[t]).c_str(),"n. found hits;n^{found}_{hits};tracks",30, 0., 30.);
-      h["lost_"+types[t]] = dir.make<TH1F>(("lost_"+types[t]).c_str(),"n. lost hits;n^{lost}_{hits};tracks",20, 0., 20.);
-      h["nchi2_"+types[t]] = dir.make<TH1F>(("nchi2_"+types[t]).c_str(),"normalized track #chi^{2};track #chi^{2}/ndf;tracks",100, 0., 20.);
-      h["rstart_"+types[t]] = dir.make<TH1F>(("rstart_"+types[t]).c_str(),"track start radius; track innermost radius r (cm);tracks",100, 0., 20.);
-      h["expectedInner_"+types[t]] = dir.make<TH1F>(("expectedInner_"+types[t]).c_str(),"n. expected inner hits;n^{expected}_{inner};tracks",10, 0., 10.);
-      h["expectedOuter_"+types[t]] = dir.make<TH1F>(("expectedOuter_"+types[t]).c_str(),"n. expected outer hits;n^{expected}_{outer};tracks ",10, 0., 10.);
-      h["logtresxy_"+types[t]] = dir.make<TH1F>(("logtresxy_"+types[t]).c_str(),"log10(track r-#phi resolution/#mum);log10(track r-#phi resolution/#mum);tracks",100, 0., 5.);
-      h["logtresz_"+types[t]] = dir.make<TH1F>(("logtresz_"+types[t]).c_str(),"log10(track z resolution/#mum);log10(track z resolution/#mum);tracks",100, 0., 5.);
-      h["tpullxy_"+types[t]] = dir.make<TH1F>(("tpullxy_"+types[t]).c_str(),"track r-#phi pull;pull_{r-#phi};tracks",100, -10., 10.);
-      h["tpullz_"+types[t]] = dir.make<TH1F>(("tpullz_"+types[t]).c_str(),"track r-z pull;pull_{r-z};tracks",100, -50., 50.);
-      h["tlogDCAxy_"+types[t]] = dir.make<TH1F>(("tlogDCAxy_"+types[t]).c_str(),"track log_{10}(DCA_{r-#phi});track log_{10}(DCA_{r-#phi});tracks",200, -5., 3.);
-      h["tlogDCAz_"+types[t]] = dir.make<TH1F>(("tlogDCAz_"+types[t]).c_str(),"track log_{10}(DCA_{r-z});track log_{10}(DCA_{r-z});tracks",200, -5., 5.);
-      h["lvseta_"+types[t]] = dir.make<TH2F>(("lvseta_"+types[t]).c_str(),"cluster length vs #eta;track #eta;cluster length",60,-3., 3., 20, 0., 20);
-      h["lvstanlambda_"+types[t]] = dir.make<TH2F>(("lvstanlambda_"+types[t]).c_str(),"cluster length vs tan #lambda; tan#lambda;cluster length",60,-6., 6., 20, 0., 20);
-      h["restrkz_"+types[t]] = dir.make<TH1F>(("restrkz_"+types[t]).c_str(),"z-residuals (track vs vertex);res_{z} (cm);tracks", 200, -5., 5.);
-      h["restrkzvsphi_"+types[t]] = dir.make<TH2F>(("restrkzvsphi_"+types[t]).c_str(),"z-residuals (track - vertex) vs track #phi;track #phi;res_{z} (cm)", 12,-TMath::Pi(),TMath::Pi(),100, -0.5,0.5);
-      h["restrkzvseta_"+types[t]] = dir.make<TH2F>(("restrkzvseta_"+types[t]).c_str(),"z-residuals (track - vertex) vs track #eta;track #eta;res_{z} (cm)", 12,-3.,3.,200, -0.5,0.5);
-      h["pulltrkzvsphi_"+types[t]] = dir.make<TH2F>(("pulltrkzvsphi_"+types[t]).c_str(),"normalized z-residuals (track - vertex) vs track #phi;track #phi;res_{z}/#sigma_{res_{z}}", 12,-TMath::Pi(),TMath::Pi(),100, -5., 5.);
-      h["pulltrkzvseta_"+types[t]] = dir.make<TH2F>(("pulltrkzvseta_"+types[t]).c_str(),"normalized z-residuals (track - vertex) vs track #eta;track #eta;res_{z}/#sigma_{res_{z}}", 12,-3.,3.,100, -5., 5.);
-      h["pulltrkz_"+types[t]] = dir.make<TH1F>(("pulltrkz_"+types[t]).c_str(),"normalized z-residuals (track vs vertex);res_{z}/#sigma_{res_{z}};tracks", 100, -5., 5.);
-      h["sigmatrkz0_"+types[t]] = dir.make<TH1F>(("sigmatrkz0_"+types[t]).c_str(),"z-resolution (excluding beam);#sigma^{trk}_{z_{0}} (cm);tracks", 100, 0., 5.);
-      h["sigmatrkz_"+types[t]] = dir.make<TH1F>(("sigmatrkz_"+types[t]).c_str(),"z-resolution (including beam);#sigma^{trk}_{z} (cm);tracks", 100,0., 5.);
-      h["nbarrelhits_"+types[t]] = dir.make<TH1F>(("nbarrelhits_"+types[t]).c_str(),"number of pixel barrel hits;n. hits Barrel Pixel;tracks", 10, 0., 10.);
-      h["nbarrelLayers_"+types[t]] = dir.make<TH1F>(("nbarrelLayers_"+types[t]).c_str(),"number of pixel barrel layers;n. layers Barrel Pixel;tracks", 10, 0., 10.);
-      h["nPxLayers_"+types[t]] = dir.make<TH1F>(("nPxLayers_"+types[t]).c_str(),"number of pixel layers (barrel+endcap);n. Pixel layers;tracks", 10, 0., 10.);
-      h["nSiLayers_"+types[t]] = dir.make<TH1F>(("nSiLayers_"+types[t]).c_str(),"number of Tracker layers;n. Tracker layers;tracks", 20, 0., 20.);
-      h["trackAlgo_"+types[t]] = dir.make<TH1F>(("trackAlgo_"+types[t]).c_str(),"track algorithm;track algo;tracks", 30, 0., 30.);
-      h["trackQuality_"+types[t]] = dir.make<TH1F>(("trackQuality_"+types[t]).c_str(),"track quality;track quality;tracks", 7, -1., 6.);
-
-      h["trackd0Vert_"+types[t]] = dir.make<TH1F>(("trackd0Vert_"+types[t]).c_str(),"track d_{0} impact parameter;track d_{0} impact parameter;tracks",200,-100.,100.);
-      h["trackdzVert_"+types[t]] = dir.make<TH1F>(("trackdzVert_"+types[t]).c_str(),"track d_{0} impact parameter;track d_{z} impact parameter;tracks",200,-100.,100.);  
-      h["trackSigd0Vert_"+types[t]] = dir.make<TH1F>(("trackSigd0Vert_"+types[t]).c_str(),"track d_{0} impact parameter significance;track d_{0}/#sigma_{d_{0}};tracks",100,-20.,20.);
-      h["trackSigdzVert_"+types[t]] = dir.make<TH1F>(("trackSigdzVert_"+types[t]).c_str(),"track d_{0} impact parameter significance;track d_{z}/#sigma_{d_{z}};tracks",200,-20.,20.);
-
-      h["kappa_"+types[t]]= dir.make<TH1F>(("kappa_"+types[t]).c_str(),"#kappa;#kappa;tracks",200,-20.,20.);
-      h["zdcap_"+types[t]]= dir.make<TH1F>(("zdcap_"+types[t]).c_str(),"zdcap;zdcap;tracks",200,-20.,20.);
-
-    }
-    
-    return h;
-    
-  }
-
-  //*************************************************************
-  void fillTrackHistos(std::map<std::string, TH1*> & h, const std::string & ttype, 
-		       const reco::Track* tt,
-		       const reco::Vertex & v, 
-		       const reco::BeamSpot & beamSpot, 
-		       double fBfield_,
-		       edm::ESHandle<TransientTrackBuilder> theB_,
-		       std::function<bool(const reco::Track*, const reco::Vertex)> trackFilter
-		       )
-  //*************************************************************
-  {
-
-    using namespace reco;
-    
-    if (!trackFilter(tt,v)) return; 
-
-    fill(h,"pseudorapidity_"+ttype,tt->eta());
-    fill(h,"z0_"+ttype,tt->vz());
-    fill(h,"phi_"+ttype,tt->phi());
-    fill(h,"eta_"+ttype,tt->eta());
-    fill(h,"pt_"+ttype,tt->pt());
-    fill(h,"p_"+ttype,tt->p());
-    fill(h,"found_"+ttype,tt->found());
-    fill(h,"lost_"+ttype,tt->lost());
-    fill(h,"nchi2_"+ttype,tt->normalizedChi2());
-    fill(h,"rstart_"+ttype,(tt->innerPosition()).Rho());
-    
-    double d0Error=tt->d0Error();
-    double d0=tt->dxy(beamSpot.position());
-    double dz=tt->dz(beamSpot.position());
-    if (d0Error>0){
-      fill(h,"logtresxy_"+ttype,log(d0Error/0.0001)/log(10.));
-      fill(h,"tpullxy_"+ttype,d0/d0Error);
-      fill(h,"tlogDCAxy_"+ttype,log(fabs(d0/d0Error)));
-      
-    }
-    //double z0=tt->vz();
-    double dzError=tt->dzError();
-    if(dzError>0){
-      fill(h,"logtresz_"+ttype,log(dzError/0.0001)/log(10.));
-      fill(h,"tpullz_"+ttype,dz/dzError);
-      fill(h,"tlogDCAz_"+ttype,log(fabs(dz/dzError)));
-    }
-    
-    //
-    double wxy2_=pow(beamSpot.BeamWidthX(),2)+pow(beamSpot.BeamWidthY(),2);
-    
-    fill(h,"sigmatrkz_"+ttype,sqrt(pow(tt->dzError(),2)+wxy2_/pow(tan(tt->theta()),2)));
-    fill(h,"sigmatrkz0_"+ttype,tt->dzError());
-    
-    // track vs vertex
-    if( v.isValid()){ // && (v.ndof()<10.)) {
-      // emulate clusterizer input
-      //const TransientTrack & tt = theB_->build(&t); wrong !!!!
-      reco::TransientTrack ttt = theB_->build(&(*tt)); 
-      ttt.setBeamSpot(beamSpot); // need the setBeamSpot !
-      double z=(ttt.stateAtBeamLine().trackStateAtPCA()).position().z();
-      double tantheta=tan((ttt.stateAtBeamLine().trackStateAtPCA()).momentum().theta());
-      double dz2= pow(tt->dzError(),2)+wxy2_/pow(tantheta,2);
-      
-      fill(h,"restrkz_"+ttype,z-v.position().z());
-      fill(h,"restrkzvsphi_"+ttype,tt->phi(), z-v.position().z());
-      fill(h,"restrkzvseta_"+ttype,tt->eta(), z-v.position().z());
-      fill(h,"pulltrkzvsphi_"+ttype,tt->phi(), (z-v.position().z())/sqrt(dz2));
-      fill(h,"pulltrkzvseta_"+ttype,tt->eta(), (z-v.position().z())/sqrt(dz2));
-      
-      fill(h,"pulltrkz_"+ttype,(z-v.position().z())/sqrt(dz2));
-      
-      double x1=tt->vx()-beamSpot.x0(); 
-      double y1=tt->vy()-beamSpot.y0();
-      
-      double kappa=-0.002998*fBfield_*tt->qoverp()/cos(tt->theta());
-      double D0=x1*sin(tt->phi())-y1*cos(tt->phi())-0.5*kappa*(x1*x1+y1*y1);
-      double q=sqrt(1.-2.*kappa*D0);
-      double s0=(x1*cos(tt->phi())+y1*sin(tt->phi()))/q;
-      
-      fill(h,"kappa_"+ttype,kappa);
-      
-      // with respect to any specified vertex, such as primary vertex
-      GlobalPoint vert(v.position().x(),v.position().y(),v.position().z());
-      TrajectoryStateClosestToPoint traj = ttt.trajectoryStateClosestToPoint(vert);
-      
-      double d0 = traj.perigeeParameters().transverseImpactParameter();
-      double d0_error = traj.perigeeError().transverseImpactParameterError();
-      double z0 = traj.perigeeParameters().longitudinalImpactParameter();
-      double z0_error = traj.perigeeError().longitudinalImpactParameterError();
-      
-      fill(h,"trackd0Vert_"+ttype,d0);
-      fill(h,"trackdzVert_"+ttype,z0);
-      fill(h,"trackSigd0Vert_"+ttype,d0/d0_error);
-      fill(h,"trackSigdzVert_"+ttype,z0/z0_error);
-     
-      double s1;
-      if (fabs(kappa*s0)>0.001){
-	s1=asin(kappa*s0)/kappa;
-      } else{
-	double ks02=(kappa*s0)*(kappa*s0);
-	s1=s0*(1.+ks02/6.+3./40.*ks02*ks02+5./112.*pow(ks02,3));
-      }
-     
-      // sp.ddcap=-2.*D0/(1.+q);
-      double zdcap=tt->vz()-s1/tan(tt->theta());
-      fill(h,"zdcap_"+ttype,zdcap);
-    }
-    //
-    
-    // collect some info on hits and clusters
-    fill(h,"nbarrelLayers_"+ttype,tt->hitPattern().pixelBarrelLayersWithMeasurement());
-    fill(h,"nPxLayers_"+ttype,tt->hitPattern().pixelLayersWithMeasurement());
-    fill(h,"nSiLayers_"+ttype,tt->hitPattern().trackerLayersWithMeasurement());
-    fill(h,"expectedInner_"+ttype,tt->hitPattern().numberOfAllHits(HitPattern::MISSING_INNER_HITS));
-    fill(h,"expectedOuter_"+ttype,tt->hitPattern().numberOfAllHits(HitPattern::MISSING_OUTER_HITS));
-    fill(h,"trackAlgo_"+ttype,tt->algo());
-    fill(h,"trackQuality_"+ttype,tt->qualityMask());
-    
-    //
-    int longesthit=0, nbarrel=0;
-    for(trackingRecHit_iterator hit=tt->recHitsBegin(); hit!=tt->recHitsEnd(); hit++){
-      if ((**hit).isValid() && (**hit).geographicalId().det() == DetId::Tracker ){
-	bool barrel = DetId((**hit).geographicalId()).subdetId() == static_cast<int>(PixelSubdetector::PixelBarrel);
-	//bool endcap = DetId::DetId((**hit).geographicalId()).subdetId() == static_cast<int>(PixelSubdetector::PixelEndcap);
-	if (barrel){
-	  const SiPixelRecHit *pixhit = dynamic_cast<const SiPixelRecHit*>( &(**hit));
-	  edm::Ref<edmNew::DetSetVector<SiPixelCluster>, SiPixelCluster> const& clust = (*pixhit).cluster();
-	  if (clust.isNonnull()) {
-	    nbarrel++;
-	    if (clust->sizeY()-longesthit>0) longesthit=clust->sizeY();
-	    if (clust->sizeY()>20.){
-	      fill(h,"lvseta_"+ttype,tt->eta(), 19.9);
-	      fill(h,"lvstanlambda_"+ttype,tan(tt->lambda()), 19.9);
-	    }else{
-	      fill(h,"lvseta_"+ttype,tt->eta(), float(clust->sizeY()));
-	      fill(h,"lvstanlambda_"+ttype,tan(tt->lambda()), float(clust->sizeY()));
-	    }
-	  }
-	}
-      }
-    }
-    fill(h,"nbarrelhits_"+ttype,float(nbarrel));
-    //------------------------------------------------------------------- 
-  }
-
-  //*************************************************************
-  void fill(std::map<std::string, TH1*>& h, std::string s, double x)
-  //*************************************************************
-  {
-    // cout << "fill1 " << s << endl;
-    if(h.count(s)==0){
-      std::cout << "Trying to fill non-exiting Histogram named " << s << std::endl;
-      return;
-    }
-    h[s]->Fill(x);
-  }
-  
-  //*************************************************************
-  void fill(std::map<std::string, TH1*>& h, std::string s, double x, double y)
-  //*************************************************************
-  {
-    // cout << "fill2 " << s << endl;
-    if(h.count(s)==0){
-      std::cout << "Trying to fill non-exiting Histogram named " << s << std::endl;
-      return;
-    }
-    h[s]->Fill(x,y);
-  }
 };
 
 
-DEFINE_FWK_MODULE(GeneralTrackAnalyzerHisto);
+DEFINE_FWK_MODULE(GeneralTrackAnalyzerHisto_v3);
 
