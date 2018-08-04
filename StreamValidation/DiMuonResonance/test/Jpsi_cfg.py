@@ -29,17 +29,13 @@ process.myanalysis = cms.EDAnalyzer("TrackAnalyzerNewTwoBodyHisto",
                                     minMass = cms.double(3.4)
                                     )
 process.TFileService = cms.Service("TFileService",
-    fileName = cms.string('myJpsiMuMu_JPsiPt20WithFSR_13TeV-pythia6-evtgen_V6-v2.root')
-)
-process.MessageLogger = cms.Service("MessageLogger",
-         destinations = cms.untracked.vstring(
-                        "cout"
-                        ),
-         cout = cms.untracked.PSet(
-         threshold = cms.untracked.string('DEBUG'),
-         INFO = cms.untracked.PSet(
-              reportEvery = cms.untracked.int32(10000))
-         ),
+                                   fileName = cms.string('myJpsiMuMu_JPsiPt20WithFSR_13TeV-pythia6-evtgen_V6-v2.root')
+                                   )
 
-)
+process.MessageLogger = cms.Service("MessageLogger",
+                                    destinations = cms.untracked.vstring("cout"),
+                                    cout = cms.untracked.PSet(threshold = cms.untracked.string('DEBUG'),
+                                                              INFO = cms.untracked.PSet(reportEvery = cms.untracked.int32(10000))),
+                                    
+                                    )
 process.p1 = cms.Path(process.offlineBeamSpot*process.myanalysis)

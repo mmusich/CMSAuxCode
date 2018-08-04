@@ -59,11 +59,27 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
  public:
   TrackAnalyzerNewTwoBodyHisto(const edm::ParameterSet& pset) {
     TkTag_ = pset.getParameter<string>("TkTag");
+    theTrackCollectionToken = consumes<reco::TrackCollection>(TkTag_);
+     
+    InputTag tag("TriggerResults","","RECO"); 
+    hltresultsToken = consumes<edm::TriggerResults>(tag);
+
+    InputTag beamSpotTag("offlineBeamSpot");
+    beamspotToken = consumes<reco::BeamSpot>(beamSpotTag);
+    
+    InputTag vertexTag("offlinePrimaryVertices");
+    vertexToken   = consumes<reco::VertexCollection>(vertexTag);
+
     theMinMass = pset.getParameter<double>( "minMass" );
     theMaxMass = pset.getParameter<double>( "maxMass" );
    }
 
   ~TrackAnalyzerNewTwoBodyHisto(){}
+
+  edm::EDGetTokenT<reco::TrackCollection>  theTrackCollectionToken;
+  edm::EDGetTokenT<edm::TriggerResults> hltresultsToken;
+  edm::EDGetTokenT<reco::BeamSpot> beamspotToken;
+  edm::EDGetTokenT<reco::VertexCollection> vertexToken;
 
   edm::Service<TFileService> fs;
   
@@ -164,11 +180,11 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
     if (DEBUG) cout << __LINE__ << endl;
 
     edm::Handle<reco::TrackCollection> trackCollection;
-    event.getByLabel(TkTag_, trackCollection);
+    event.getByToken(theTrackCollectionToken, trackCollection);
 
     if (DEBUG) cout << __LINE__ << endl;
     
-    const reco::TrackCollection tC = *(trackCollection.product());\
+    const reco::TrackCollection tC = *(trackCollection.product());
     
     int MultCand = 0 ;
     if (tC.size() > 2 ) MultCand =1 ; 
@@ -254,7 +270,7 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
       //dxy with respect to the beamspot
       reco::BeamSpot beamSpot;
       edm::Handle<reco::BeamSpot> beamSpotHandle;
-      event.getByLabel("offlineBeamSpot", beamSpotHandle);
+      event.getByToken(beamspotToken,beamSpotHandle);
       if(beamSpotHandle.isValid()){ 
 	beamSpot = *beamSpotHandle;
 	math::XYZPoint point(beamSpot.x0(),beamSpot.y0(), beamSpot.z0());
@@ -267,7 +283,7 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
       
       //dxy with respect to the primary vertex
       edm::Handle<reco::VertexCollection> pVert;
-      event.getByLabel("offlinePrimaryVertices", "WithBS", pVert);
+      event.getByToken(vertexToken,pVert);
       if (!pVert.isValid()) {
 	cout << "PrimaryVertex not found" << endl;
 	return;
