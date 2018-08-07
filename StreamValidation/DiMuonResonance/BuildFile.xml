@@ -48,4 +48,5 @@
 <use   name="rootcore"/>
 <use   name="rootrflx"/>
 <use   name="root"/>
+<use   name="roofit"/>
 <flags EDM_PLUGIN="1"/>

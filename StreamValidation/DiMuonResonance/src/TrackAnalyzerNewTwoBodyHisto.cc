@@ -36,6 +36,7 @@
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
 #include "DataFormats/VertexReco/interface/VertexFwd.h" 
+#include "DataFormats/GeometryCommonDetAlgo/interface/Measurement1D.h"
 
 #include <iostream>
 #include <fstream>
@@ -47,10 +48,20 @@
 #include "TTree.h"
 #include "TH1D.h"
 #include "TH2D.h"
+#include "TCanvas.h"
 #include "TBranch.h"
 #include <map>
 
+// RooFit includes
+#include "RooPlot.h"
+#include "RooRealVar.h"
+#include "RooDataHist.h"
+#include "RooAddPdf.h"
+#include "RooGaussian.h"
+#include "RooVoigtian.h"
+
 #define DEBUG 0
+
 
 using namespace std;
 using namespace edm;
@@ -72,9 +83,14 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
 
     theMinMass = pset.getParameter<double>( "minMass" );
     theMaxMass = pset.getParameter<double>( "maxMass" );
+    nBins_     = pset.getUntrackedParameter<int>("nBins",24);
+    m_verbose_fit = pset.getUntrackedParameter<bool>("verbose_fit",true);
    }
 
   ~TrackAnalyzerNewTwoBodyHisto(){}
+
+  //void fitVoigt(TH1F *hist);
+  //void makeNicePlotStyle(RooPlot* plot);
 
   edm::EDGetTokenT<reco::TrackCollection>  theTrackCollectionToken;
   edm::EDGetTokenT<edm::TriggerResults> hltresultsToken;
@@ -84,11 +100,22 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
   edm::Service<TFileService> fs;
   
   TTree* AnalysisTree;
-//   BRANCH branch;
+  //   BRANCH branch;
 
   TH1D *hInvMassJpsi  ;
   TH1D *hInvMassUpsilon  ;
   TH1D *hInvMassZ ;
+
+  std::map<int,TH1D*> hInvMassZinPhiPlusBins_;
+  std::map<int,TH1D*> hInvMassZinPhiMinusBins_;
+  std::map<int,TH1D*> hInvMassZinEtaPlusBins_;
+  std::map<int,TH1D*> hInvMassZinEtaMinusBins_;
+
+  TH1D *hInvMassVsPhiPlus; 
+  TH1D *hInvMassVsPhiMinus;
+  TH1D *hInvMassVsEtaPlus; 
+  TH1D *hInvMassVsEtaMinus;
+
   vector <pair <string, bool> > triggerInfo;
  
   TH1D *hchi2  ;
@@ -135,7 +162,6 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
   TH1D *hnhTOB;
   TH1D *hnhTEC;
 
-
   TH1D *hMultCand ;
 
   TH1D * hPx ;
@@ -168,6 +194,8 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
 
   std::string TkTag_;
   double theMinMass, theMaxMass;
+  int nBins_;
+  bool  m_verbose_fit;
 
   virtual void analyze(const edm::Event& event, const edm::EventSetup& setup){
     double pigreco = 3.141592;
@@ -200,6 +228,9 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
     hrun->Fill(event.run());
     hlumi->Fill(event.luminosityBlock());
 
+    TAxis *phiaxis = new TAxis(nBins_,-pigreco,pigreco);
+    TAxis *etaaxis = new TAxis(nBins_,-2.5,2.5);
+
     invMass.clear();
     for (reco::TrackCollection::const_iterator track=tC.begin(); track!=tC.end(); track++){
       TLorentzVector track0(track->px(),track->py(),track->pz(),sqrt((track->p()*track->p())+(0.105*0.105))); //old 106
@@ -219,11 +250,32 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
 	double etaMu1 = track->eta();
 	double phiMu1 = track->phi();
 	//double ptMu1 = track->pt();
+	int charge1  = track->charge();
 	
+	int phi1bin = phiaxis->FindBin(phiMu1);
+	int eta1bin = etaaxis->FindBin(etaMu1);
+
 	double etaMu2 = track1->eta();
 	double phiMu2 = track1->phi();
 	//double ptMu2 = track1->pt();
+	//int charge2   = track1->charge();
+
+	int phi2bin = phiaxis->FindBin(phiMu2);
+	int eta2bin = etaaxis->FindBin(etaMu2);
 	
+	//std::cout<< "phi1bin:" << phi1bin << " phi2bin:"<< phi2bin << " eta1bin:"<<eta1bin << " eta2bin:" << eta2bin << std::endl;
+	if(charge1>0){
+	  hInvMassZinPhiPlusBins_[phi1bin]->Fill(InvMass); 
+	  hInvMassZinPhiMinusBins_[phi2bin]->Fill(InvMass);
+	  hInvMassZinEtaPlusBins_[eta1bin]->Fill(InvMass); 
+	  hInvMassZinEtaMinusBins_[eta2bin]->Fill(InvMass);
+	} else {
+	  hInvMassZinPhiPlusBins_[phi2bin]->Fill(InvMass); 
+	  hInvMassZinPhiMinusBins_[phi1bin]->Fill(InvMass);
+	  hInvMassZinEtaPlusBins_[eta2bin]->Fill(InvMass); 
+	  hInvMassZinEtaMinusBins_[eta1bin]->Fill(InvMass);
+	}
+       
 	double deltaEta = etaMu1 - etaMu2;
 	double deltaPhi = phiMu1 - phiMu2;
 	if (deltaPhi < - pigreco) deltaPhi = 2*pigreco + deltaPhi;
@@ -304,8 +356,13 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
       hdzPV->Fill(-track->dz(mypoint));
 							       
       iCounter++;
+
+      
+
     }//return; 
 
+    delete phiaxis;
+    delete etaaxis;
   }
 
   virtual void beginJob() {
@@ -371,14 +428,139 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
     hd0PV=fs->make<TH1D>("hd0PV","hd0PV",200,-0.02,0.02);
     hdzPV=fs->make<TH1D>("hdzPV","hdzPV",200,-0.02,0.02);
 
+    // book the binned distributions of invariant mass
     
+    TFileDirectory BinnedDistributions = fs->mkdir("BinnedDistributions");
+    TFileDirectory phiPlus  = BinnedDistributions.mkdir("phiPlus");
+    TFileDirectory phiMinus = BinnedDistributions.mkdir("phiMinus");
+    TFileDirectory etaPlus  = BinnedDistributions.mkdir("etaPlus");
+    TFileDirectory etaMinus = BinnedDistributions.mkdir("etaMinus");
+    
+    for(int i=0;i<=nBins_+1;i++){
+      hInvMassZinPhiPlusBins_[i]  = phiPlus.make<TH1D>(Form("hInvMassZ_vsPhiPlus_bin%i",i),   Form("di-#mu invariant mass (#phi_{#mu^{+}} bin %i);di-#mu invariant mass [GeV];n. events",i),120,60,120); 
+      hInvMassZinPhiMinusBins_[i] = phiMinus.make<TH1D>(Form("hInvMassZ_vsPhiMinus_bin%i",i), Form("di-#mu invariant mass (#phi_{#mu^{-}} bin %i);di-#mu invariant mass [GeV];n. events",i),120,60,120);
+      hInvMassZinEtaPlusBins_[i]  = etaPlus.make<TH1D>(Form("hInvMassZ_vsEtaPlus_bin_%i",i),  Form("di-#mu invariant mass (#eta_{#mu^{+}} bin %i);di-#mu invariant mass [GeV];n. events",i),120,60,120);  
+      hInvMassZinEtaMinusBins_[i] = etaMinus.make<TH1D>(Form("hInvMassZ_vsEtaMinus_bin_%i",i),Form("di-#mu invariant mass (#eta_{#mu^{+}} bin %i);di-#mu invariant mass [GeV];n. events",i),120,60,120);
+    }
+
+    TFileDirectory MassTrends = fs->mkdir("Mass Trends");
+    hInvMassVsPhiPlus  = MassTrends.make<TH1D>("hInvMassVsPhiPlus", "di-#mu invariant mass vs #phi_{#mu^{+}};#phi_{#mu^{+}} [rad];di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5); 
+    hInvMassVsPhiMinus = MassTrends.make<TH1D>("hInvMassVsPhiMinus","di-#mu invariant mass vs #phi_{#mu^{-}};#phi_{#mu^{+}} [rad];di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5);
+    hInvMassVsEtaPlus  = MassTrends.make<TH1D>("hInvMassVsEtaPlus", "di-#mu invariant mass vs #eta_{#mu^{+}};#eta_{#mu^{+}};di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5); 
+    hInvMassVsEtaMinus = MassTrends.make<TH1D>("hInvMassVsEtaMinus","di-#mu invariant mass vs #eta_{#mu^{+}};#eta_{#mu^{+}};di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5);
+
     firstEvent_=true;
 
   }//beginJob
 
+  
+//****************************************************************/
+  std::pair<Measurement1D, Measurement1D>  fitVoigt(TH1 *hist)
+//****************************************************************/
+  {
+    std::cout << "## Fitting TH1 histograms ##" << std::endl;
+    if (!m_verbose_fit) {
+      RooMsgService::instance().setGlobalKillBelow(RooFit::FATAL);
+    }
+
+    TCanvas *c1 = new TCanvas();
+    // Define common things for the different fits
+  
+    c1->Clear();
+
+    c1->SetLeftMargin(0.15);
+    c1->SetRightMargin(0.10);
+
+    Double_t xmin = 60;
+    Double_t xmax = 120;
+    RooRealVar InvMass("InVMass", "di-muon mass", xmin, xmax);
+    RooPlot* frame = InvMass.frame();
+    RooDataHist datahist("datahist", "datahist",InvMass, RooFit::Import(*hist));
+    datahist.plotOn(frame);
+  
+    RooRealVar mean("mean","mean",95.0, 60.0, 120.0);
+    RooRealVar width("width","width",5.0, 0.0, 120.0);
+    RooRealVar sigma("sigma","sigma",5.0, 0.0, 120.0);
+    //RooBreitWigner gauss("gauss","gauss",x,mean,sigma);
+    RooVoigtian voigt("voigt","voigt",InvMass,mean,width,sigma);
+
+    RooFitResult* filters = voigt.fitTo(datahist,"qr");
+    voigt.plotOn(frame,RooFit::LineColor(4));//this will show fit overlay on canvas 
+    voigt.paramOn(frame); //this will display the fit parameters on canvas
+  
+    makeNicePlotStyle(frame);
+
+  // Redraw data on top and print / store everything
+    datahist.plotOn(frame);
+    frame->GetYaxis()->SetTitle("n. of events");
+    TString histName = hist->GetName();
+    frame->SetName("frame"+histName);
+    frame->SetTitle(hist->GetTitle());
+    frame->Draw();
+    //    m_output->cd();
+    //frame->Write();
+    
+    c1->Print("fit_debug"+histName+".pdf");
+    delete c1;
+
+    //return std::make_tuple(mean.getVal(),width.getVal(),sigma.getVal());
+
+    float mass_mean  = mean.getVal();
+    float mass_sigma = sigma.getVal();
+  
+    float mass_mean_err  = mean.getError();
+    float mass_sigma_err = sigma.getError();
+
+    Measurement1D resultM(mass_mean,mass_mean_err);
+    Measurement1D resultW(mass_sigma,mass_sigma_err);
+
+    std::pair<Measurement1D, Measurement1D> result;
+  
+    result = std::make_pair(resultM,resultW);
+    return result;
+
+}
+
+/*--------------------------------------------------------------------*/
+void makeNicePlotStyle(RooPlot* plot)
+/*--------------------------------------------------------------------*/
+{ 
+  plot->GetXaxis()->CenterTitle(true);
+  plot->GetYaxis()->CenterTitle(true);
+  plot->GetXaxis()->SetTitleFont(42); 
+  plot->GetYaxis()->SetTitleFont(42);  
+  plot->GetXaxis()->SetTitleSize(0.05);
+  plot->GetYaxis()->SetTitleSize(0.05);
+  plot->GetXaxis()->SetTitleOffset(0.9);
+  plot->GetYaxis()->SetTitleOffset(1.3);
+  plot->GetXaxis()->SetLabelFont(42);
+  plot->GetYaxis()->SetLabelFont(42);
+  plot->GetYaxis()->SetLabelSize(.05);
+  plot->GetXaxis()->SetLabelSize(.05);
+}
+
+
   virtual void endJob()
   { 
+  
+    for(int i=1;i<=nBins_;i++){
+      auto phiplusparams  = fitVoigt(hInvMassZinPhiPlusBins_[i]);
+      hInvMassVsPhiPlus->SetBinContent(i,phiplusparams.first.value()); 
+      hInvMassVsPhiPlus->SetBinError(i,phiplusparams.first.error()); 
 
+      auto phiminusparams = fitVoigt(hInvMassZinPhiMinusBins_[i]);
+      hInvMassVsPhiMinus->SetBinContent(i,phiminusparams.first.value());
+      hInvMassVsPhiMinus->SetBinError(i,phiminusparams.first.error());
+
+      auto etaplusparams  = fitVoigt(hInvMassZinEtaPlusBins_[i]);
+      hInvMassVsEtaPlus->SetBinContent(i,etaplusparams.first.value()); 
+      hInvMassVsEtaPlus->SetBinError(i,etaplusparams.first.error()); 
+
+      auto etaminusparams = fitVoigt(hInvMassZinEtaMinusBins_[i]);
+      hInvMassVsEtaMinus->SetBinContent(i,etaminusparams.first.value());
+      hInvMassVsEtaMinus->SetBinError(i,etaminusparams.first.error());
+
+    }
   }
 
 };
