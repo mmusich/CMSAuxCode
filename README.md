@@ -5,7 +5,7 @@ Extra subsystem for CMSSW
 
 Recipe:
 
-scramv1 p CMSSW_7_2_0_pre6  
-cd CMSSW_7_2_0_pre6/src/  
-git clone -b forCMSSW_7_2_0_pre6 git@github.com:mmusich/CMSAuxCode.git .  
+scramv1 p CMSSW_10_2_5_patch1
+cd CMSSW_10_2_5_patch1/src/  
+git clone -b forCMSSW_10_2_X git@github.com:mmusich/CMSAuxCode.git .  
 scramv1 b -j 8   
