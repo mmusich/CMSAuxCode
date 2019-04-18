@@ -110,11 +110,17 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
   std::map<int,TH1D*> hInvMassZinPhiMinusBins_;
   std::map<int,TH1D*> hInvMassZinEtaPlusBins_;
   std::map<int,TH1D*> hInvMassZinEtaMinusBins_;
+  std::map<std::pair<int,int>,TH1D*> hInvMassZinEtaPhiPlusBins_;
+  std::map<std::pair<int,int>,TH1D*> hInvMassZinEtaPhiMinusBins_;
+
 
   TH1D *hInvMassVsPhiPlus; 
   TH1D *hInvMassVsPhiMinus;
   TH1D *hInvMassVsEtaPlus; 
   TH1D *hInvMassVsEtaMinus;
+
+  TH2D *hInvMassVsEtaPhiPlus;
+  TH2D *hInvMassVsEtaPhiMinus;
 
   vector <pair <string, bool> > triggerInfo;
  
@@ -263,17 +269,25 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
 	int phi2bin = phiaxis->FindBin(phiMu2);
 	int eta2bin = etaaxis->FindBin(etaMu2);
 	
+	auto etaphi1 = std::make_pair(eta1bin,phi1bin);
+	auto etaphi2 = std::make_pair(eta2bin,phi2bin);
+
 	//std::cout<< "phi1bin:" << phi1bin << " phi2bin:"<< phi2bin << " eta1bin:"<<eta1bin << " eta2bin:" << eta2bin << std::endl;
 	if(charge1>0){
 	  hInvMassZinPhiPlusBins_[phi1bin]->Fill(InvMass); 
 	  hInvMassZinPhiMinusBins_[phi2bin]->Fill(InvMass);
 	  hInvMassZinEtaPlusBins_[eta1bin]->Fill(InvMass); 
 	  hInvMassZinEtaMinusBins_[eta2bin]->Fill(InvMass);
+	  hInvMassZinEtaPhiPlusBins_[etaphi1]->Fill(InvMass);
+	  hInvMassZinEtaPhiMinusBins_[etaphi2]->Fill(InvMass);
+
 	} else {
 	  hInvMassZinPhiPlusBins_[phi2bin]->Fill(InvMass); 
 	  hInvMassZinPhiMinusBins_[phi1bin]->Fill(InvMass);
 	  hInvMassZinEtaPlusBins_[eta2bin]->Fill(InvMass); 
 	  hInvMassZinEtaMinusBins_[eta1bin]->Fill(InvMass);
+	  hInvMassZinEtaPhiPlusBins_[etaphi2]->Fill(InvMass);
+	  hInvMassZinEtaPhiMinusBins_[etaphi1]->Fill(InvMass);
 	}
        
 	double deltaEta = etaMu1 - etaMu2;
@@ -435,19 +449,30 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
     TFileDirectory phiMinus = BinnedDistributions.mkdir("phiMinus");
     TFileDirectory etaPlus  = BinnedDistributions.mkdir("etaPlus");
     TFileDirectory etaMinus = BinnedDistributions.mkdir("etaMinus");
+    TFileDirectory etaPhiMinus = BinnedDistributions.mkdir("etaPhiMinus");
+    TFileDirectory etaPhiPlus  = BinnedDistributions.mkdir("etaPhiPlus");
+
     
     for(int i=0;i<=nBins_+1;i++){
       hInvMassZinPhiPlusBins_[i]  = phiPlus.make<TH1D>(Form("hInvMassZ_vsPhiPlus_bin%i",i),   Form("di-#mu invariant mass (#phi_{#mu^{+}} bin %i);di-#mu invariant mass [GeV];n. events",i),120,60,120); 
       hInvMassZinPhiMinusBins_[i] = phiMinus.make<TH1D>(Form("hInvMassZ_vsPhiMinus_bin%i",i), Form("di-#mu invariant mass (#phi_{#mu^{-}} bin %i);di-#mu invariant mass [GeV];n. events",i),120,60,120);
       hInvMassZinEtaPlusBins_[i]  = etaPlus.make<TH1D>(Form("hInvMassZ_vsEtaPlus_bin_%i",i),  Form("di-#mu invariant mass (#eta_{#mu^{+}} bin %i);di-#mu invariant mass [GeV];n. events",i),120,60,120);  
       hInvMassZinEtaMinusBins_[i] = etaMinus.make<TH1D>(Form("hInvMassZ_vsEtaMinus_bin_%i",i),Form("di-#mu invariant mass (#eta_{#mu^{+}} bin %i);di-#mu invariant mass [GeV];n. events",i),120,60,120);
+      for(int j=0;j<=nBins_+1;j++){
+	auto pair = std::make_pair(i,j);
+	hInvMassZinEtaPhiPlusBins_[pair]  = etaPhiPlus.make<TH1D> (Form("hInvMassZ_vsEta_bin_%i_Phi_bin_%i_Plus",i,j),  Form("di-#mu invariant mass (#eta_{#mu^{+}} bin %i,#phi_{#mu^{+}} bin %i);di-#mu invariant mass [GeV];n. events",i,j),120,60,120);  
+	hInvMassZinEtaPhiMinusBins_[pair] = etaPhiMinus.make<TH1D>(Form("hInvMassZ_vsEta_bin_%i_Phi_bin_%i_Minus",i,j), Form("di-#mu invariant mass (#eta_{#mu^{-}} bin %i,#phi_{#mu^{-}} bin %i);di-#mu invariant mass [GeV];n. events",i,j),120,60,120);
+      }
     }
 
     TFileDirectory MassTrends = fs->mkdir("Mass Trends");
     hInvMassVsPhiPlus  = MassTrends.make<TH1D>("hInvMassVsPhiPlus", "di-#mu invariant mass vs #phi_{#mu^{+}};#phi_{#mu^{+}} [rad];di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5); 
-    hInvMassVsPhiMinus = MassTrends.make<TH1D>("hInvMassVsPhiMinus","di-#mu invariant mass vs #phi_{#mu^{-}};#phi_{#mu^{+}} [rad];di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5);
+    hInvMassVsPhiMinus = MassTrends.make<TH1D>("hInvMassVsPhiMinus","di-#mu invariant mass vs #phi_{#mu^{-}};#phi_{#mu^{-}} [rad];di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5);
     hInvMassVsEtaPlus  = MassTrends.make<TH1D>("hInvMassVsEtaPlus", "di-#mu invariant mass vs #eta_{#mu^{+}};#eta_{#mu^{+}};di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5); 
-    hInvMassVsEtaMinus = MassTrends.make<TH1D>("hInvMassVsEtaMinus","di-#mu invariant mass vs #eta_{#mu^{+}};#eta_{#mu^{+}};di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5);
+    hInvMassVsEtaMinus = MassTrends.make<TH1D>("hInvMassVsEtaMinus","di-#mu invariant mass vs #eta_{#mu^{-}};#eta_{#mu^{-}};di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5);
+
+    hInvMassVsEtaPhiPlus  = MassTrends.make<TH2D>("hInvMassVsEtaPhiPlus", "di-#mu invariant mass vs (#eta_{#mu^{+}},#phi_{#mu^{+}});#eta_{#mu^{+}};#phi_{#mu^{+}} [rad];di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5,nBins_,-0.5,nBins_-0.5); 
+    hInvMassVsEtaPhiMinus = MassTrends.make<TH2D>("hInvMassVsEtaPhiMinus","di-#mu invariant mass vs (#eta_{#mu^{-}},#phi_{#mu^{-}});#eta_{#mu^{+}};#phi_{#mu^{-}} [rad];di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5,nBins_,-0.5,nBins_-0.5);
 
     firstEvent_=true;
 
@@ -471,8 +496,8 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
     c1->SetLeftMargin(0.15);
     c1->SetRightMargin(0.10);
 
-    Double_t xmin = 60;
-    Double_t xmax = 120;
+    Double_t xmin = 65;
+    Double_t xmax = 115;
     RooRealVar InvMass("InVMass", "di-muon mass", xmin, xmax);
     RooPlot* frame = InvMass.frame();
     RooDataHist datahist("datahist", "datahist",InvMass, RooFit::Import(*hist));
@@ -559,6 +584,18 @@ void makeNicePlotStyle(RooPlot* plot)
       auto etaminusparams = fitVoigt(hInvMassZinEtaMinusBins_[i]);
       hInvMassVsEtaMinus->SetBinContent(i,etaminusparams.first.value());
       hInvMassVsEtaMinus->SetBinError(i,etaminusparams.first.error());
+
+      for(int j=1;j<=nBins_;j++){
+	auto pair = std::make_pair(i,j);
+	auto etaphiplusparams  = fitVoigt(hInvMassZinEtaPhiPlusBins_[pair]);
+	hInvMassVsEtaPhiPlus->SetBinContent(i,j,etaphiplusparams.first.value()); 
+	hInvMassVsEtaPhiPlus->SetBinError(i,j,etaphiplusparams.first.error()); 
+
+	auto etaphiminusparams = fitVoigt(hInvMassZinEtaPhiMinusBins_[pair]);
+	hInvMassVsEtaPhiMinus->SetBinContent(i,j,etaphiminusparams.first.value());
+	hInvMassVsEtaPhiMinus->SetBinError(i,j,etaphiminusparams.first.error());
+      }
+
 
     }
   }
