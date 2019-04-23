@@ -76,7 +76,8 @@ void recurseOverKeys(TDirectory *target1,const std::vector<TString>& labels)
     auto obj = key->ReadObj();
 
     // Check if this is a 1D histogram or a directory
-    if (obj->IsA()->InheritsFrom("TH1")) {
+    if (obj->IsA()->InheritsFrom("TH1")&& 
+	!obj->IsA()->InheritsFrom("TH2")) {
 
       // **************************
       // Plot & Save this Histogram
@@ -109,7 +110,7 @@ void recurseOverKeys(TDirectory *target1,const std::vector<TString>& labels)
       // obj still knows its depth within the target file via
       // GetPath(), so we can still figure out where we are in the recursion
 
-      if( (TString(obj->GetName())).Contains("Residuals") ) continue;
+      if( (TString(obj->GetName())).Contains("BinnedDistributions") ) continue;
 
       recurseOverKeys( (TDirectory*)obj ,labels);
 
@@ -142,8 +143,12 @@ void plotHistograms(std::vector<TH1*> histos, const std::vector<TString>& labels
   std::pair<Double_t,Double_t> extrema =  getExtrema(array);
   delete array;
   float min = (extrema.first>0) ? (extrema.first)*0.7 : (extrema.first)*1.3;
-  histos[0]->GetYaxis()->SetRangeUser(min,extrema.second*1.3);
-  
+  if(!TString(histos[0]->GetName()).Contains("Vs")){
+    histos[0]->GetYaxis()->SetRangeUser(min,extrema.second*1.3);
+  } else {
+    histos[0]->GetYaxis()->SetRangeUser(90.7-0.75,90.7+0.75);
+  } 
+
   TRatioPlot* rp;
 
   for(unsigned int i=1;i<histos.size();i++){
