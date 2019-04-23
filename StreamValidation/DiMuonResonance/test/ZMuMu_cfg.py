@@ -6,7 +6,7 @@ process.load("RecoVertex.BeamSpotProducer.BeamSpot_cff")
 process.load("Configuration.StandardSequences.Services_cff")
 process.load("Configuration.StandardSequences.GeometryRecoDB_cff")
 process.load("Configuration.StandardSequences.MagneticField_cff")
-process.load("CondCore.DBCommon.CondDBCommon_cfi")
+process.load("CondCore.CondDB.CondDB_cfi")
 process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_cff")
 process.GlobalTag.globaltag = '94X_dataRun2_ReReco_EOY17_v2'
 
@@ -66,12 +66,13 @@ process.TrackRefitter1 = process.TrackRefitterP5.clone(
     #srcConstr='AliMomConstraint1' ### SPECIFIC FOR CRUZET$works only with tag V02-10-02 TrackingTools/PatternTools / or CMSSW >=31X
     )
 
-process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(100000))
+process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(-1))
 process.myanalysis = cms.EDAnalyzer("TrackAnalyzerNewTwoBodyHisto",
                                     #TkTag = cms.string ('ALCARECOTkAlZMuMu'),
                                     TkTag = cms.string ('TrackRefitter1'),
                                     maxMass = cms.double(80),
-                                    minMass = cms.double(120)
+                                    minMass = cms.double(120),
+                                    verbose_fit = cms.untracked.bool(False)
                                     )
 
 process.TFileService = cms.Service("TFileService",
