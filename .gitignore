@@ -1,8 +1,18 @@
+# Editor files
+*.swp
+
 # Ignore compiled python files
 *.pyc
+__init__.py
 
 # Ignore data files
 *.root
 
+# Ignore compilation files
+*.d
+*.so
+*.pcm
+
 # Ignore images files
-*.png *.pdf
+*.png 
+*.pdf
