@@ -1,0 +1,8 @@
+# Ignore compiled python files
+*.pyc
+
+# Ignore data files
+*.root
+
+# Ignore images files
+*.png *.pdf
