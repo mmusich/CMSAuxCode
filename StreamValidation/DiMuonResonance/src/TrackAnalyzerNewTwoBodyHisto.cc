@@ -1,56 +1,52 @@
-#include <memory>
 
-#include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/EDAnalyzer.h"
-
-#include "FWCore/Framework/interface/Event.h"
-#include "FWCore/Framework/interface/MakerMacros.h"
-#include "FWCore/ParameterSet/interface/ParameterSet.h"
-#include "FWCore/Framework/interface/EventSetup.h"
-
-#include "FWCore/Framework/interface/ESHandle.h"
-#include "FWCore/Framework/interface/ESWatcher.h"
-
-#include "DataFormats/TrackReco/interface/TrackFwd.h"
-#include "DataFormats/TrackReco/interface/Track.h"
-#include "DataFormats/TrackingRecHit/interface/TrackingRecHit.h"
-
-#include "FWCore/Framework/interface/ESHandle.h"
-#include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
-#include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
-#include "Geometry/CommonDetUnit/interface/GeomDet.h"
-#include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
-
-#include "IOMC/RandomEngine/src/RandomEngineStateProducer.h"
-
-#include "FWCore/ServiceRegistry/interface/Service.h"
+// CMSSW includes
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
-#include "CondFormats/DataRecord/interface/SiStripCondDataRecords.h"
-
-#include "CondFormats/HLTObjects/interface/AlCaRecoTriggerBits.h"
 #include "CondFormats/DataRecord/interface/AlCaRecoTriggerBitsRcd.h"
-#include "DataFormats/Common/interface/TriggerResults.h"
-#include "FWCore/Common/interface/TriggerNames.h"
-// #include "DataFormats/TrackReco/interface/HitPattern.h"
-#include "DataFormats/MuonReco/interface/MuonSelectors.h"
+#include "CondFormats/DataRecord/interface/SiStripCondDataRecords.h"
+#include "CondFormats/HLTObjects/interface/AlCaRecoTriggerBits.h"
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
+#include "DataFormats/Common/interface/TriggerResults.h"
+#include "DataFormats/GeometryCommonDetAlgo/interface/Measurement1D.h"
+#include "DataFormats/MuonReco/interface/MuonSelectors.h"
+#include "DataFormats/TrackReco/interface/Track.h"
+#include "DataFormats/TrackReco/interface/TrackFwd.h"
+// #include "DataFormats/TrackReco/interface/HitPattern.h"
+#include "DataFormats/TrackingRecHit/interface/TrackingRecHit.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
 #include "DataFormats/VertexReco/interface/VertexFwd.h" 
-#include "DataFormats/GeometryCommonDetAlgo/interface/Measurement1D.h"
+#include "FWCore/Common/interface/TriggerNames.h"
+#include "FWCore/Framework/interface/EDAnalyzer.h"
+#include "FWCore/Framework/interface/ESHandle.h"
+#include "FWCore/Framework/interface/ESWatcher.h"
+#include "FWCore/Framework/interface/Event.h"
+#include "FWCore/Framework/interface/EventSetup.h"
+#include "FWCore/Framework/interface/Frameworkfwd.h"
+#include "FWCore/Framework/interface/MakerMacros.h"
+#include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "FWCore/ServiceRegistry/interface/Service.h"
+#include "Geometry/CommonDetUnit/interface/GeomDet.h"
+#include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
+#include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
+#include "IOMC/RandomEngine/src/RandomEngineStateProducer.h"
 
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <vector>
-#include <math.h>
-#include "TLorentzVector.h"
+// ROOT includes
+#include "TBranch.h"
+#include "TCanvas.h"
 #include "TFile.h"
-#include "TTree.h"
 #include "TH1D.h"
 #include "TH2D.h"
-#include "TCanvas.h"
-#include "TBranch.h"
+#include "TLorentzVector.h"
+#include "TTree.h"
+
+// System includes
+#include <cmath>
+#include <fstream>
+#include <iostream>
 #include <map>
+#include <math.h>
+#include <memory>
+#include <string>
+#include <vector>
 
 // RooFit includes
 #include "RooPlot.h"
@@ -61,7 +57,6 @@
 #include "RooVoigtian.h"
 
 #define DEBUG 0
-
 
 using namespace std;
 using namespace edm;
@@ -110,14 +105,16 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
   std::map<int,TH1D*> hInvMassZinPhiMinusBins_;
   std::map<int,TH1D*> hInvMassZinEtaPlusBins_;
   std::map<int,TH1D*> hInvMassZinEtaMinusBins_;
+  std::map<int,TH1D*> hInvMassZinDeltaEtaBins_;
+
   std::map<std::pair<int,int>,TH1D*> hInvMassZinEtaPhiPlusBins_;
   std::map<std::pair<int,int>,TH1D*> hInvMassZinEtaPhiMinusBins_;
-
 
   TH1D *hInvMassVsPhiPlus; 
   TH1D *hInvMassVsPhiMinus;
   TH1D *hInvMassVsEtaPlus; 
   TH1D *hInvMassVsEtaMinus;
+  TH1D *hInvMassVsDeltaEta;
 
   TH2D *hInvMassVsEtaPhiPlus;
   TH2D *hInvMassVsEtaPhiMinus;
@@ -204,7 +201,7 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
   bool  m_verbose_fit;
 
   virtual void analyze(const edm::Event& event, const edm::EventSetup& setup){
-    double pigreco = 3.141592;
+    //    double pigreco = 3.141592;
     
     if (DEBUG) cout << __LINE__ << endl;
 
@@ -234,8 +231,9 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
     hrun->Fill(event.run());
     hlumi->Fill(event.luminosityBlock());
 
-    TAxis *phiaxis = new TAxis(nBins_,-pigreco,pigreco);
+    TAxis *phiaxis = new TAxis(nBins_,-M_PI,M_PI);
     TAxis *etaaxis = new TAxis(nBins_,-2.5,2.5);
+    TAxis *deltaEtaaxis = new TAxis(nBins_,-3,3);
 
     invMass.clear();
     for (reco::TrackCollection::const_iterator track=tC.begin(); track!=tC.end(); track++){
@@ -291,9 +289,12 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
 	}
        
 	double deltaEta = etaMu1 - etaMu2;
+	int deltaEtaBin = deltaEtaaxis->FindBin(deltaEta);
+	hInvMassZinDeltaEtaBins_[deltaEtaBin]->Fill(InvMass);
+
 	double deltaPhi = phiMu1 - phiMu2;
-	if (deltaPhi < - pigreco) deltaPhi = 2*pigreco + deltaPhi;
-	if (deltaPhi >   pigreco) deltaPhi =-2*pigreco + deltaPhi;
+	if (deltaPhi < - M_PI) deltaPhi = 2*M_PI + deltaPhi;
+	if (deltaPhi >   M_PI) deltaPhi =-2*M_PI + deltaPhi;
 	double R  = sqrt(deltaEta*deltaEta + deltaPhi*deltaPhi);
 	hDeltaPhi -> Fill (deltaPhi);
 	hDeltaEta -> Fill (deltaEta);
@@ -445,19 +446,22 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
     // book the binned distributions of invariant mass
     
     TFileDirectory BinnedDistributions = fs->mkdir("BinnedDistributions");
-    TFileDirectory phiPlus  = BinnedDistributions.mkdir("phiPlus");
-    TFileDirectory phiMinus = BinnedDistributions.mkdir("phiMinus");
-    TFileDirectory etaPlus  = BinnedDistributions.mkdir("etaPlus");
-    TFileDirectory etaMinus = BinnedDistributions.mkdir("etaMinus");
+    TFileDirectory phiPlus     = BinnedDistributions.mkdir("phiPlus");
+    TFileDirectory phiMinus    = BinnedDistributions.mkdir("phiMinus");
+    TFileDirectory etaPlus     = BinnedDistributions.mkdir("etaPlus");
+    TFileDirectory etaMinus    = BinnedDistributions.mkdir("etaMinus");
     TFileDirectory etaPhiMinus = BinnedDistributions.mkdir("etaPhiMinus");
     TFileDirectory etaPhiPlus  = BinnedDistributions.mkdir("etaPhiPlus");
+    TFileDirectory deltaEta    = BinnedDistributions.mkdir("deltaEta");
 
-    
     for(int i=0;i<=nBins_+1;i++){
       hInvMassZinPhiPlusBins_[i]  = phiPlus.make<TH1D>(Form("hInvMassZ_vsPhiPlus_bin%i",i),   Form("di-#mu invariant mass (#phi_{#mu^{+}} bin %i);di-#mu invariant mass [GeV];n. events",i),120,60,120); 
       hInvMassZinPhiMinusBins_[i] = phiMinus.make<TH1D>(Form("hInvMassZ_vsPhiMinus_bin%i",i), Form("di-#mu invariant mass (#phi_{#mu^{-}} bin %i);di-#mu invariant mass [GeV];n. events",i),120,60,120);
       hInvMassZinEtaPlusBins_[i]  = etaPlus.make<TH1D>(Form("hInvMassZ_vsEtaPlus_bin_%i",i),  Form("di-#mu invariant mass (#eta_{#mu^{+}} bin %i);di-#mu invariant mass [GeV];n. events",i),120,60,120);  
       hInvMassZinEtaMinusBins_[i] = etaMinus.make<TH1D>(Form("hInvMassZ_vsEtaMinus_bin_%i",i),Form("di-#mu invariant mass (#eta_{#mu^{+}} bin %i);di-#mu invariant mass [GeV];n. events",i),120,60,120);
+      hInvMassZinDeltaEtaBins_[i] = deltaEta.make<TH1D>(Form("hInvMassZ_vsDeltaEta_bin_%i",i),Form("di-#mu invariant mass (#eta_{#mu^{+}} bin %i);di-#mu invariant mass [GeV];n. events",i),120,60,120);;
+
+      // 2D maps
       for(int j=0;j<=nBins_+1;j++){
 	auto pair = std::make_pair(i,j);
 	hInvMassZinEtaPhiPlusBins_[pair]  = etaPhiPlus.make<TH1D> (Form("hInvMassZ_vsEta_bin_%i_Phi_bin_%i_Plus",i,j),  Form("di-#mu invariant mass (#eta_{#mu^{+}} bin %i,#phi_{#mu^{+}} bin %i);di-#mu invariant mass [GeV];n. events",i,j),120,60,120);  
@@ -473,6 +477,8 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
 
     hInvMassVsEtaPhiPlus  = MassTrends.make<TH2D>("hInvMassVsEtaPhiPlus", "di-#mu invariant mass vs (#eta_{#mu^{+}},#phi_{#mu^{+}});#eta_{#mu^{+}};#phi_{#mu^{+}} [rad];di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5,nBins_,-0.5,nBins_-0.5); 
     hInvMassVsEtaPhiMinus = MassTrends.make<TH2D>("hInvMassVsEtaPhiMinus","di-#mu invariant mass vs (#eta_{#mu^{-}},#phi_{#mu^{-}});#eta_{#mu^{+}};#phi_{#mu^{-}} [rad];di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5,nBins_,-0.5,nBins_-0.5);
+
+    hInvMassVsDeltaEta = MassTrends.make<TH1D>("hInvMassVsDeltaEta", "di-#mu invariant mass vs #Delta#eta_{#mu^{+},#mu_{-}};#Delta#eta_{#mu^{+},#mu^{-}};di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5);
 
     firstEvent_=true;
 
@@ -585,6 +591,10 @@ void makeNicePlotStyle(RooPlot* plot)
       hInvMassVsEtaMinus->SetBinContent(i,etaminusparams.first.value());
       hInvMassVsEtaMinus->SetBinError(i,etaminusparams.first.error());
 
+      auto deltaEtaparams = fitVoigt(hInvMassZinDeltaEtaBins_[i]);
+      hInvMassVsDeltaEta->SetBinContent(i,deltaEtaparams.first.value());
+      hInvMassVsDeltaEta->SetBinError(i,deltaEtaparams.first.error());
+
       for(int j=1;j<=nBins_;j++){
 	auto pair = std::make_pair(i,j);
 	auto etaphiplusparams  = fitVoigt(hInvMassZinEtaPhiPlusBins_[pair]);
@@ -595,8 +605,6 @@ void makeNicePlotStyle(RooPlot* plot)
 	hInvMassVsEtaPhiMinus->SetBinContent(i,j,etaphiminusparams.first.value());
 	hInvMassVsEtaPhiMinus->SetBinError(i,j,etaphiminusparams.first.error());
       }
-
-
     }
   }
 
