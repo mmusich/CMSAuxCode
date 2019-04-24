@@ -59,6 +59,7 @@
 #include "RooAddPdf.h"
 #include "RooGaussian.h"
 #include "RooVoigtian.h"
+#include "RooExponential.h"
 
 #define DEBUG 0
 
@@ -84,7 +85,7 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
     theMinMass = pset.getParameter<double>( "minMass" );
     theMaxMass = pset.getParameter<double>( "maxMass" );
     nBins_     = pset.getUntrackedParameter<int>("nBins",24);
-    m_verbose_fit = pset.getUntrackedParameter<bool>("verbose_fit",true);
+    m_verbose_fit = pset.getUntrackedParameter<bool>("verbose_fit",false);
    }
 
   ~TrackAnalyzerNewTwoBodyHisto(){}
@@ -113,11 +114,15 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
   std::map<std::pair<int,int>,TH1D*> hInvMassZinEtaPhiPlusBins_;
   std::map<std::pair<int,int>,TH1D*> hInvMassZinEtaPhiMinusBins_;
 
-
   TH1D *hInvMassVsPhiPlus; 
   TH1D *hInvMassVsPhiMinus;
   TH1D *hInvMassVsEtaPlus; 
   TH1D *hInvMassVsEtaMinus;
+
+  TH1D *hSigmaInvMassVsPhiPlus;  
+  TH1D *hSigmaInvMassVsPhiMinus; 
+  TH1D *hSigmaInvMassVsEtaPlus;  
+  TH1D *hSigmaInvMassVsEtaMinus; 
 
   TH2D *hInvMassVsEtaPhiPlus;
   TH2D *hInvMassVsEtaPhiMinus;
@@ -381,66 +386,68 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
 
   virtual void beginJob() {
     ievt=0;
-    hrun = fs->make<TH1D>("hrun","run",20000,180000.5,200000.5);//1000000,0,1000000);
-    hlumi = fs->make<TH1D>("hlumi","lumi",1000,0,1000);
-    hInvMassJpsi = fs->make<TH1D>("hInvMassJpsi","hInvMassJpsi",400,2,4);
-    hInvMassUpsilon = fs->make<TH1D>("hInvMassUpsilon","hInvMassUpsilon",600,8,11);
-    hInvMassZ = fs->make<TH1D>("hInvMassZ","hInvMassZ",600,60,120);
 
-    hchi2 = fs->make<TH1D>("hchi2","#chi^{2}/ndf",100,0,5.);
-    hNtrk=fs->make<TH1D>("hNtrk","Number of Tracks",200,0.,200.);
-    hP=fs->make<TH1D>("hP","Momentum",200,0.,200.);
-    hPt=fs->make<TH1D>("hPt","Transverse Momentum",200,0.,200.);
-    hHit=fs->make<TH1D>("hHit","Number of hit",30,0,30);
-    hEta=fs->make<TH1D>("hEta","Eta",100,-4.,4.);
-    hPhi=fs->make<TH1D>("hPhi","Phi",100,-4.,4.);
-    hPhiDT=fs->make<TH1D>("hPhiDT","hPhiDT",100,-4.,4.);
-    hPhiRPCPlus=fs->make<TH1D>("hPhiRPCPlus","hPhiRPCPlus",100,-4.,4.);
-    hPhiRPCMinus=fs->make<TH1D>("hPhiRPCMinus","hPhiRPCMinus",100,-4.,4.);
-    hPhiCSCPlus=fs->make<TH1D>("hPhiCSCPlus","hPhiCSCPlus",100,-4.,4.);
-    hPhiCSCMinus=fs->make<TH1D>("hPhiCSCMinus","hPhiCSCMinus",100,-4.,4.);
-    hvx  =fs->make<TH1D>("hvx"  ,"hvx"  ,100,0.,.5);
-    hvy  =fs->make<TH1D>("hvy"  ,"hvy"  ,100,0.,.5);
-    hvz  =fs->make<TH1D>("hvz"  ,"hvz"  ,100,-10.,10.);
-    hd0  =fs->make<TH1D>("hd0"  ,"hd0"  ,100,-1.,1.);
-    hd0vsphi  =fs->make<TH2D>("hd0vsphi"  ,"hd0vsphi"  ,160,-3.20,3.20,100,-1.,1.);
-    hd0vseta  =fs->make<TH2D>("hd0vseta"  ,"hd0vseta"  ,160,-3.20,3.20,100,-1.,1.);
-    hd0vspt   =fs->make<TH2D>("hd0vspt"   ,"hd0vspt"   ,50,0.,100.,100,-0.25,0.25);
+    TFileDirectory ControlPlots = fs->mkdir("ControlPlots");
+
+    hrun = ControlPlots.make<TH1D>("hrun","run",20000,180000.5,200000.5);//1000000,0,1000000);
+    hlumi = ControlPlots.make<TH1D>("hlumi","lumi",1000,0,1000);
+    hInvMassJpsi = ControlPlots.make<TH1D>("hInvMassJpsi","hInvMassJpsi",400,2,4);
+    hInvMassUpsilon = ControlPlots.make<TH1D>("hInvMassUpsilon","hInvMassUpsilon",600,8,11);
+    hInvMassZ = ControlPlots.make<TH1D>("hInvMassZ","hInvMassZ",600,60,120);
+
+    hchi2 = ControlPlots.make<TH1D>("hchi2","#chi^{2}/ndf",100,0,5.);
+    hNtrk=ControlPlots.make<TH1D>("hNtrk","Number of Tracks",200,0.,200.);
+    hP=ControlPlots.make<TH1D>("hP","Momentum",200,0.,200.);
+    hPt=ControlPlots.make<TH1D>("hPt","Transverse Momentum",200,0.,200.);
+    hHit=ControlPlots.make<TH1D>("hHit","Number of hit",30,0,30);
+    hEta=ControlPlots.make<TH1D>("hEta","Eta",100,-4.,4.);
+    hPhi=ControlPlots.make<TH1D>("hPhi","Phi",100,-4.,4.);
+    hPhiDT=ControlPlots.make<TH1D>("hPhiDT","hPhiDT",100,-4.,4.);
+    hPhiRPCPlus=ControlPlots.make<TH1D>("hPhiRPCPlus","hPhiRPCPlus",100,-4.,4.);
+    hPhiRPCMinus=ControlPlots.make<TH1D>("hPhiRPCMinus","hPhiRPCMinus",100,-4.,4.);
+    hPhiCSCPlus=ControlPlots.make<TH1D>("hPhiCSCPlus","hPhiCSCPlus",100,-4.,4.);
+    hPhiCSCMinus=ControlPlots.make<TH1D>("hPhiCSCMinus","hPhiCSCMinus",100,-4.,4.);
+    hvx  =ControlPlots.make<TH1D>("hvx"  ,"hvx"  ,100,0.,.5);
+    hvy  =ControlPlots.make<TH1D>("hvy"  ,"hvy"  ,100,0.,.5);
+    hvz  =ControlPlots.make<TH1D>("hvz"  ,"hvz"  ,100,-10.,10.);
+    hd0  =ControlPlots.make<TH1D>("hd0"  ,"hd0"  ,100,-1.,1.);
+    hd0vsphi  =ControlPlots.make<TH2D>("hd0vsphi"  ,"hd0vsphi"  ,160,-3.20,3.20,100,-1.,1.);
+    hd0vseta  =ControlPlots.make<TH2D>("hd0vseta"  ,"hd0vseta"  ,160,-3.20,3.20,100,-1.,1.);
+    hd0vspt   =ControlPlots.make<TH2D>("hd0vspt"   ,"hd0vspt"   ,50,0.,100.,100,-0.25,0.25);
     if (DEBUG) cout << __LINE__ << endl;
 
-    hnhpxb  =fs->make<TH1D>("nhpxb"  ,"nhpxb"  ,10,0.,10.);
-    hnhpxe  =fs->make<TH1D>("nhpxe"  ,"nhpxe"  ,10,0.,10.);
-    hnhTIB  =fs->make<TH1D>("nhTIB"  ,"nhTIB"  ,20,0.,20.);
-    hnhTID  =fs->make<TH1D>("nhTID"  ,"nhTID"  ,20,0.,20.);
-    hnhTOB  =fs->make<TH1D>("nhTOB"  ,"nhTOB"  ,20,0.,20.);
-    hnhTEC  =fs->make<TH1D>("nhTEC"  ,"nhTEC"  ,20,0.,20.);
+    hnhpxb  =ControlPlots.make<TH1D>("nhpxb"  ,"nhpxb"  ,10,0.,10.);
+    hnhpxe  =ControlPlots.make<TH1D>("nhpxe"  ,"nhpxe"  ,10,0.,10.);
+    hnhTIB  =ControlPlots.make<TH1D>("nhTIB"  ,"nhTIB"  ,20,0.,20.);
+    hnhTID  =ControlPlots.make<TH1D>("nhTID"  ,"nhTID"  ,20,0.,20.);
+    hnhTOB  =ControlPlots.make<TH1D>("nhTOB"  ,"nhTOB"  ,20,0.,20.);
+    hnhTEC  =ControlPlots.make<TH1D>("nhTEC"  ,"nhTEC"  ,20,0.,20.);
     if (DEBUG) cout << __LINE__ << endl;
       
-
-    hPx=fs->make<TH1D>("hPx","hPx",200,-100.,100.);
-    hPy=fs->make<TH1D>("hPy","hPy",200,-100.,100.);
-    hPz=fs->make<TH1D>("hPz","hPz",200,-100.,100.);
+    hPx=ControlPlots.make<TH1D>("hPx","hPx",200,-100.,100.);
+    hPy=ControlPlots.make<TH1D>("hPy","hPy",200,-100.,100.);
+    hPz=ControlPlots.make<TH1D>("hPz","hPz",200,-100.,100.);
     
-    hmuQ=fs->make<TH1D>("hmuQ","hmuQ",5,-2.5,2.5);
+    hmuQ=ControlPlots.make<TH1D>("hmuQ","hmuQ",5,-2.5,2.5);
     
-    hdxy=fs->make<TH1D>("hdxy","hdxy",200,-0.1,0.1);
-    hdz =fs->make<TH1D>("hdz","hdz",200,-0.5,0.5);
+    hdxy=ControlPlots.make<TH1D>("hdxy","hdxy",200,-0.1,0.1);
+    hdz =ControlPlots.make<TH1D>("hdz","hdz",200,-0.5,0.5);
 
 
-    hEtaMother=fs->make<TH1D>("hEtaMother","EtaMother",100,-4.,4.);
-    hPtMother=fs->make<TH1D>("hPtMother","Transverse Momentum Mother",200,0.,200.);
-    hPhiMother=fs->make<TH1D>("hPhiMother","PhiMother",100,-4.,4.);
+    hEtaMother=ControlPlots.make<TH1D>("hEtaMother","EtaMother",100,-4.,4.);
+    hPtMother=ControlPlots.make<TH1D>("hPtMother","Transverse Momentum Mother",200,0.,200.);
+    hPhiMother=ControlPlots.make<TH1D>("hPhiMother","PhiMother",100,-4.,4.);
 
-    hDeltaPhi= fs->make<TH1D>("hDeltaPhi","DeltaPhi",100,-10.,10.);
-    hDeltaEta= fs->make<TH1D>("hDeltaEta","DeltaEta",100,-10.,10.);
-    hDeltaR  = fs->make<TH1D>("R"  ,"R"  ,100,-1.,10.);
+    hDeltaPhi= ControlPlots.make<TH1D>("hDeltaPhi","DeltaPhi",100,-10.,10.);
+    hDeltaEta= ControlPlots.make<TH1D>("hDeltaEta","DeltaEta",100,-10.,10.);
+    hDeltaR  = ControlPlots.make<TH1D>("R"  ,"R"  ,100,-1.,10.);
 
-    hdxyBS=fs->make<TH1D>("hdxyBS","hdxyBS",200,-0.02,0.02);
-    hd0BS=fs->make<TH1D>("hd0BS","hd0BS",600,-0.06,0.06);
-    hdzBS=fs->make<TH1D>("hdzBS","hdzBS",1200,-12,12);
-    hdxyPV=fs->make<TH1D>("hdxyPV","hdxyPV",200,-0.02,0.02);
-    hd0PV=fs->make<TH1D>("hd0PV","hd0PV",200,-0.02,0.02);
-    hdzPV=fs->make<TH1D>("hdzPV","hdzPV",200,-0.02,0.02);
+    hdxyBS=ControlPlots.make<TH1D>("hdxyBS","hdxyBS",200,-0.02,0.02);
+    hd0BS=ControlPlots.make<TH1D>("hd0BS","hd0BS",600,-0.06,0.06);
+    hdzBS=ControlPlots.make<TH1D>("hdzBS","hdzBS",1200,-12,12);
+    hdxyPV=ControlPlots.make<TH1D>("hdxyPV","hdxyPV",200,-0.02,0.02);
+    hd0PV=ControlPlots.make<TH1D>("hd0PV","hd0PV",200,-0.02,0.02);
+    hdzPV=ControlPlots.make<TH1D>("hdzPV","hdzPV",200,-0.02,0.02);
 
     // book the binned distributions of invariant mass
     
@@ -471,6 +478,11 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
     hInvMassVsEtaPlus  = MassTrends.make<TH1D>("hInvMassVsEtaPlus", "di-#mu invariant mass vs #eta_{#mu^{+}};#eta_{#mu^{+}};di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5); 
     hInvMassVsEtaMinus = MassTrends.make<TH1D>("hInvMassVsEtaMinus","di-#mu invariant mass vs #eta_{#mu^{-}};#eta_{#mu^{-}};di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5);
 
+    hSigmaInvMassVsPhiPlus  = MassTrends.make<TH1D>("hSigmaInvMassVsPhiPlus", "di-#mu invariant mass resolution vs #phi_{#mu^{+}};#phi_{#mu^{+}} [rad];#sigma(M_{#mu#mu})[GeV]",nBins_,-0.5,nBins_-0.5); 
+    hSigmaInvMassVsPhiMinus = MassTrends.make<TH1D>("hSigmaInvMassVsPhiMinus","di-#mu invariant mass resolution vs #phi_{#mu^{-}};#phi_{#mu^{-}} [rad];#sigma(M_{#mu#mu})[GeV]",nBins_,-0.5,nBins_-0.5);
+    hSigmaInvMassVsEtaPlus  = MassTrends.make<TH1D>("hSigmaInvMassVsEtaPlus", "di-#mu invariant mass resolution vs #eta_{#mu^{+}};#eta_{#mu^{+}};#sigma(M_{#mu#mu})[GeV]",nBins_,-0.5,nBins_-0.5); 
+    hSigmaInvMassVsEtaMinus = MassTrends.make<TH1D>("hSigmaInvMassVsEtaMinus","di-#mu invariant mass resolution vs #eta_{#mu^{-}};#eta_{#mu^{-}};#sigma(M_{#mu#mu})[GeV]",nBins_,-0.5,nBins_-0.5);
+
     hInvMassVsEtaPhiPlus  = MassTrends.make<TH2D>("hInvMassVsEtaPhiPlus", "di-#mu invariant mass vs (#eta_{#mu^{+}},#phi_{#mu^{+}});#eta_{#mu^{+}};#phi_{#mu^{+}} [rad];di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5,nBins_,-0.5,nBins_-0.5); 
     hInvMassVsEtaPhiMinus = MassTrends.make<TH2D>("hInvMassVsEtaPhiMinus","di-#mu invariant mass vs (#eta_{#mu^{-}},#phi_{#mu^{-}});#eta_{#mu^{+}};#phi_{#mu^{-}} [rad];di-#mu invariant mass [GeV]",nBins_,-0.5,nBins_-0.5,nBins_,-0.5,nBins_-0.5);
 
@@ -483,7 +495,6 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
   std::pair<Measurement1D, Measurement1D>  fitVoigt(TH1 *hist)
 //****************************************************************/
   {
-    std::cout << "## Fitting TH1 histograms ##" << std::endl;
     if (!m_verbose_fit) {
       RooMsgService::instance().setGlobalKillBelow(RooFit::FATAL);
     }
@@ -496,34 +507,58 @@ class TrackAnalyzerNewTwoBodyHisto : public edm::EDAnalyzer {
     c1->SetLeftMargin(0.15);
     c1->SetRightMargin(0.10);
 
-    Double_t xmin = 65;
-    Double_t xmax = 115;
-    RooRealVar InvMass("InVMass", "di-muon mass", xmin, xmax);
+    Double_t xmin = 60;
+    Double_t xmax = 120;
+    RooRealVar InvMass("InVMass", "di-muon mass M(#mu^{+}#mu^{-}) [GeV]", xmin, xmax);
     RooPlot* frame = InvMass.frame();
     RooDataHist datahist("datahist", "datahist",InvMass, RooFit::Import(*hist));
     datahist.plotOn(frame);
   
-    RooRealVar mean("mean","mean",95.0, 60.0, 120.0);
+    RooRealVar mean("#mu","mean",90.0, 60.0, 120.0);
     RooRealVar width("width","width",5.0, 0.0, 120.0);
-    RooRealVar sigma("sigma","sigma",5.0, 0.0, 120.0);
+    RooRealVar sigma("#sigma","sigma",5.0, 0.0, 120.0);
     //RooBreitWigner gauss("gauss","gauss",x,mean,sigma);
     RooVoigtian voigt("voigt","voigt",InvMass,mean,width,sigma);
 
-    RooFitResult* filters = voigt.fitTo(datahist,"qr");
-    voigt.plotOn(frame,RooFit::LineColor(4));//this will show fit overlay on canvas 
-    voigt.paramOn(frame); //this will display the fit parameters on canvas
+    RooRealVar lambda("#lambda", "slope", -0.01, -100., 1.);
+    RooExponential expo("expo", "expo", InvMass, lambda);
+
+    RooRealVar b("N_{b}", "Number of background events",0,hist->GetEntries()/10.);
+    RooRealVar s("N_{s}", "Number of signal events", 0,hist->GetEntries());
+
+    RooAddPdf fullModel("fullModel", "Signal + Background Model", RooArgList(voigt, expo), RooArgList(s, b));
+
+    //RooFitResult* filters = voigt.fitTo(datahist,"qr");
+
+    //RooFitResult* r = 0;
+    if (m_verbose_fit) {
+      //auto r = voigt.fitTo(datahist, RooFit::Save());
+      auto r = fullModel.fitTo(datahist, RooFit::Save());
+    } else {
+      //auto r = voigt.fitTo(datahist, RooFit::PrintLevel(-1), RooFit::Save());
+      auto r = fullModel.fitTo(datahist, RooFit::PrintLevel(-1), RooFit::Save(),RooFit::Range(70.,110.));
+      //auto r = fullModel.fitTo(datahist, RooFit::PrintLevel(-1), RooFit::Save());
+    }
+
+    //voigt.plotOn(frame,RooFit::LineColor(kRed));//this will show fit overlay on canvas 
+    //voigt.paramOn(frame); //this will display the fit parameters on canvas
   
+    fullModel.plotOn(frame,RooFit::LineColor(kRed));
+    fullModel.plotOn(frame,RooFit::Components(expo),RooFit::LineStyle(kDashed)) ; //Other option
+    fullModel.paramOn(frame,RooFit::Layout(0.65,0.90,0.90));
+    frame->getAttText()->SetTextSize(0.03);
+
     makeNicePlotStyle(frame);
 
-  // Redraw data on top and print / store everything
+    // Redraw data on top and print / store everything
     datahist.plotOn(frame);
     frame->GetYaxis()->SetTitle("n. of events");
     TString histName = hist->GetName();
     frame->SetName("frame"+histName);
     frame->SetTitle(hist->GetTitle());
     frame->Draw();
-    //    m_output->cd();
-    //frame->Write();
+    // m_output->cd();
+    // frame->Write();
     
     c1->Print("fit_debug"+histName+".pdf");
     delete c1;
@@ -567,23 +602,33 @@ void makeNicePlotStyle(RooPlot* plot)
 
   virtual void endJob()
   { 
-  
+    
+    std::cout << "## Fitting TH1 histograms ##" << std::endl;
+
     for(int i=1;i<=nBins_;i++){
       auto phiplusparams  = fitVoigt(hInvMassZinPhiPlusBins_[i]);
       hInvMassVsPhiPlus->SetBinContent(i,phiplusparams.first.value()); 
       hInvMassVsPhiPlus->SetBinError(i,phiplusparams.first.error()); 
+      hSigmaInvMassVsPhiPlus->SetBinContent(i,phiplusparams.second.value());
+      hSigmaInvMassVsPhiPlus->SetBinError(i,phiplusparams.second.error()); 
 
       auto phiminusparams = fitVoigt(hInvMassZinPhiMinusBins_[i]);
       hInvMassVsPhiMinus->SetBinContent(i,phiminusparams.first.value());
-      hInvMassVsPhiMinus->SetBinError(i,phiminusparams.first.error());
+      hInvMassVsPhiMinus->SetBinError(i,phiminusparams.first.error());  
+      hSigmaInvMassVsPhiMinus->SetBinContent(i,phiminusparams.second.value());
+      hSigmaInvMassVsPhiMinus->SetBinError(i,phiminusparams.second.error());  
 
       auto etaplusparams  = fitVoigt(hInvMassZinEtaPlusBins_[i]);
       hInvMassVsEtaPlus->SetBinContent(i,etaplusparams.first.value()); 
-      hInvMassVsEtaPlus->SetBinError(i,etaplusparams.first.error()); 
+      hInvMassVsEtaPlus->SetBinError(i,etaplusparams.first.error());   
+      hSigmaInvMassVsEtaPlus->SetBinContent(i,etaplusparams.second.value());
+      hSigmaInvMassVsEtaPlus->SetBinError(i,etaplusparams.second.error());  
 
       auto etaminusparams = fitVoigt(hInvMassZinEtaMinusBins_[i]);
       hInvMassVsEtaMinus->SetBinContent(i,etaminusparams.first.value());
-      hInvMassVsEtaMinus->SetBinError(i,etaminusparams.first.error());
+      hInvMassVsEtaMinus->SetBinError(i,etaminusparams.first.error());  
+      hSigmaInvMassVsEtaMinus->SetBinContent(i,etaminusparams.second.value());
+      hSigmaInvMassVsEtaMinus->SetBinError(i,etaminusparams.second.error());  
 
       for(int j=1;j<=nBins_;j++){
 	auto pair = std::make_pair(i,j);
@@ -595,8 +640,6 @@ void makeNicePlotStyle(RooPlot* plot)
 	hInvMassVsEtaPhiMinus->SetBinContent(i,j,etaphiminusparams.first.value());
 	hInvMassVsEtaPhiMinus->SetBinError(i,j,etaphiminusparams.first.error());
       }
-
-
     }
   }
 

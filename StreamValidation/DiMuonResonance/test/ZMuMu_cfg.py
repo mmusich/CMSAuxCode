@@ -1,14 +1,58 @@
 import FWCore.ParameterSet.Config as cms
 
 process = cms.Process("AlcarecoAnalysis")
+###################################################################
+def customiseAlignmentAndAPE(process):
+###################################################################
+    if not hasattr(process.GlobalTag,'toGet'):
+        process.GlobalTag.toGet=cms.VPSet()
+    process.GlobalTag.toGet.extend( cms.VPSet(cms.PSet(record = cms.string("TrackerAlignmentRcd"),
+                                                       tag = cms.string("Alignments"),
+                                                       connect = cms.string("sqlite_file:/afs/cern.ch/cms/CAF/CMSALCA/ALCA_TRACKERALIGN/MP/MPproduction/um0001/jobData/jobm/um0001.db")
+                                                       ),
+                                              cms.PSet(record = cms.string("TrackerAlignmentErrorExtendedRcd"),
+                                                       tag = cms.string("TrackerAlignmentExtendedErrors_v9_offline_IOVs"),
+                                                       connect = cms.string("frontier://FrontierProd/CMS_CONDITIONS")
+                                                       ),
+                                              cms.PSet(record = cms.string('SiPixelTemplateDBObjectRcd'), 
+                                                       tag = cms.string('SiPixelTemplateDBObject_38T_v15_offline'), 
+                                                       connect = cms.string("frontier://FrontierProd/CMS_CONDITIONS")
+                                                       )                                                
+                                              )
+                                    )
+    return process
+
+###################################################################
+def customiseKinksAndBows(process):
+###################################################################
+     if not hasattr(process.GlobalTag,'toGet'):
+          process.GlobalTag.toGet=cms.VPSet()
+     process.GlobalTag.toGet.extend(cms.VPSet(cms.PSet(record = cms.string("TrackerSurfaceDeformationRcd"),
+                                                       tag = cms.string("Deformations"),
+                                                       connect = cms.string("sqlite_file:/afs/cern.ch/cms/CAF/CMSALCA/ALCA_TRACKERALIGN/MP/MPproduction/um0001/jobData/jobm/um0001.db")
+                                                       ),        
+                                              )
+                                    )
+     return process
+
+
+
 process.load("FWCore.MessageService.MessageLogger_cfi")
+process.MessageLogger.destinations = ['cout', 'cerr']
+process.MessageLogger.cerr.FwkReport.reportEvery = 10000
+
 process.load("RecoVertex.BeamSpotProducer.BeamSpot_cff")
 process.load("Configuration.StandardSequences.Services_cff")
 process.load("Configuration.StandardSequences.GeometryRecoDB_cff")
 process.load("Configuration.StandardSequences.MagneticField_cff")
-process.load("CondCore.DBCommon.CondDBCommon_cfi")
+process.load("CondCore.CondDB.CondDB_cfi")
 process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_cff")
-process.GlobalTag.globaltag = '94X_dataRun2_ReReco_EOY17_v2'
+from Configuration.AlCa.GlobalTag import GlobalTag
+process.GlobalTag = GlobalTag(process.GlobalTag, '94X_dataRun2_ReReco_EOY17_v2', '')
+process.GlobalTag.DumpStat = cms.untracked.bool(True)
+
+process=customiseAlignmentAndAPE(process)
+process=customiseKinksAndBows(process)
 
 process.source = cms.Source ("PoolSource",fileNames =  cms.untracked.vstring())
 process.source.fileNames = [
@@ -71,19 +115,20 @@ process.myanalysis = cms.EDAnalyzer("TrackAnalyzerNewTwoBodyHisto",
                                     #TkTag = cms.string ('ALCARECOTkAlZMuMu'),
                                     TkTag = cms.string ('TrackRefitter1'),
                                     maxMass = cms.double(80),
-                                    minMass = cms.double(120)
+                                    minMass = cms.double(120),
+                                    verbose_fit = cms.untracked.bool(False)
                                     )
 
 process.TFileService = cms.Service("TFileService",
-                                   fileName = cms.string('myZMuMu.root')
+                                   fileName = cms.string('myZMuMu_new.root')
                                    )
 
-process.MessageLogger = cms.Service("MessageLogger",
-                                    destinations = cms.untracked.vstring("cout"),
-                                    cout = cms.untracked.PSet(threshold = cms.untracked.string('DEBUG'),
-                                                              INFO = cms.untracked.PSet(reportEvery = cms.untracked.int32(10000))),
+# process.MessageLogger = cms.Service("MessageLogger",
+#                                     destinations = cms.untracked.vstring("cout"),
+#                                     cout = cms.untracked.PSet(threshold = cms.untracked.string('DEBUG'),
+#                                                               INFO = cms.untracked.PSet(reportEvery = cms.untracked.int32(10000))),
                                     
-                                    )
+#                                     )
 
 process.p1 = cms.Path(process.offlineBeamSpot*
                       process.TrackRefitter1*
